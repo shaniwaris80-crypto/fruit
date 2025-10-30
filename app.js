@@ -1076,6 +1076,20 @@ function drawResumen(){ drawKPIs(); }
   } catch (e) {
     console.error('❌ Error en sincronización extendida:', e.message);
   }
+   /* ---------- BOTÓN: AÑADIR IVA (4%) AL SUBTOTAL ---------- */
+const btnAddIva = document.getElementById('btnAddIva');
+if (btnAddIva) {
+  btnAddIva.addEventListener('click', () => {
+    const subtotal = unMoney(document.getElementById('subtotal').textContent);
+    const iva = subtotal * 0.04;
+    const total = subtotal + iva;
+
+    // Mostrar en pantalla
+    document.getElementById('iva').textContent = money(iva);
+    document.getElementById('total').textContent = money(total);
+  });
+}
+
 })();
 
 })();
