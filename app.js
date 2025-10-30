@@ -973,6 +973,8 @@ function drawResumen(){ drawKPIs(); }
    =========================================================== */
 (async function syncBidireccional() {
   console.log('☁️ Iniciando sincronización bidireccional...');
+  window.syncBidireccional = syncBidireccional;
+
 
   // ✅ Tablas que queremos sincronizar
   const TABLAS = {
