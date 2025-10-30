@@ -1,12 +1,11 @@
-/* ==========================================================
-   Service Worker — ARSLAN PRO V10.4 (KIWI Edition)
-   Proyecto: fruit
-   Funciones:
-   - Cachea recursos principales para modo offline
-   - Actualiza automáticamente al cambiar versión
-   ========================================================== */
+// ============================
+// ARSLAN PRO V10.4 - SW KIWI
+// Service Worker para /fruit/
+// ============================
 
-const CACHE_NAME = 'arslan-fruit-v104-cache-v1';
+const CACHE_NAME = 'arslan-fruit-v104-cache-v2';
+
+// Archivos a cachear (asegúrate de que existan todos)
 const CACHE_ASSETS = [
   '/fruit/',
   '/fruit/index.html',
@@ -18,58 +17,68 @@ const CACHE_ASSETS = [
   'https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js'
 ];
 
-/* ---------- INSTALL ---------- */
+// Instalación: cachear recursos
 self.addEventListener('install', event => {
   console.log('Service Worker instalado');
   event.waitUntil(
-    (async () => {
-      const cache = await caches.open(CACHE_NAME);
-      try {
-        await cache.addAll(CACHE_ASSETS);
-        console.log('✅ Archivos cacheados correctamente');
-      } catch (err) {
-        console.warn('⚠️ Error cacheando algunos archivos:', err);
+    caches.open(CACHE_NAME).then(async cache => {
+      for (const asset of CACHE_ASSETS) {
+        try {
+          await cache.add(asset);
+          console.log('✅ Cacheado:', asset);
+        } catch (err) {
+          console.warn('⚠️ No se pudo cachear:', asset, err);
+        }
       }
-    })()
+    })
   );
+  self.skipWaiting();
 });
 
-/* ---------- ACTIVATE ---------- */
+// Activación: limpiar cachés viejas
 self.addEventListener('activate', event => {
   console.log('Service Worker activado');
   event.waitUntil(
-    (async () => {
-      const keys = await caches.keys();
-      await Promise.all(
-        keys.map(k => {
-          if (k !== CACHE_NAME) {
-            console.log('🗑️ Borrando caché antigua:', k);
+    caches.keys().then(keys => {
+      return Promise.all(
+        keys
+          .filter(k => k !== CACHE_NAME)
+          .map(k => {
+            console.log('🗑️ Borrando caché vieja:', k);
             return caches.delete(k);
-          }
-        })
+          })
       );
-      await self.clients.claim();
-    })()
+    })
   );
+  self.clients.claim();
 });
 
-/* ---------- FETCH ---------- */
+// Fetch: servir desde caché o red
 self.addEventListener('fetch', event => {
+  // Si la solicitud es para /fruit o /fruit/index.html → devuelve el index.html cacheado
+  if (event.request.mode === 'navigate') {
+    event.respondWith(
+      caches.match('/fruit/index.html').then(resp => resp || fetch(event.request))
+    );
+    return;
+  }
+
+  // Para otros archivos (CSS, JS, etc.)
   event.respondWith(
-    (async () => {
-      try {
-        const response = await fetch(event.request);
-        const cache = await caches.open(CACHE_NAME);
-        cache.put(event.request, response.clone());
-        return response;
-      } catch (error) {
-        const cached = await caches.match(event.request);
-        if (cached) return cached;
-        if (event.request.mode === 'navigate') {
-          return caches.match('/fruit/index.html');
-        }
-      }
-    })()
+    caches.match(event.request).then(resp => {
+      return resp || fetch(event.request).then(fetchResp => {
+        // Cachear en segundo plano las nuevas respuestas
+        return caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, fetchResp.clone());
+          return fetchResp;
+        });
+      }).catch(() => {
+        // Si falla (sin conexión y sin caché)
+        return new Response('⚠️ Sin conexión y recurso no cacheado.', {
+          status: 503,
+          headers: { 'Content-Type': 'text/plain' }
+        });
+      });
+    })
   );
 });
-
