@@ -1,21 +1,53 @@
 {
-  "name": "ARSLAN PRO KIWI",
-  "short_name": "ARSLAN PRO",
-  "start_url": "/fruit/",
+  "name": "ARSLAN PRO KIWI — V10.4",
+  "short_name": "KIWI PRO",
+  "description": "Sistema profesional de gestión y facturación de frutas y verduras.",
+  "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
+  "orientation": "portrait",
   "background_color": "#ffffff",
   "theme_color": "#16a34a",
-  "description": "Gestión y facturación profesional para fruterías — KIWI Edition",
+  "lang": "es-ES",
+  "categories": ["productivity", "business", "finance"],
   "icons": [
     {
       "src": "logo.png",
       "sizes": "192x192",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "logo.png",
       "sizes": "512x512",
-      "type": "image/png"
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Nueva Factura",
+      "short_name": "Factura",
+      "url": "./index.html#factura",
+      "icons": [{ "src": "logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Clientes",
+      "short_name": "Clientes",
+      "url": "./index.html#clientes",
+      "icons": [{ "src": "logo.png", "sizes": "192x192" }]
+    },
+    {
+      "name": "Productos",
+      "short_name": "Productos",
+      "url": "./index.html#productos",
+      "icons": [{ "src": "logo.png", "sizes": "192x192" }]
     }
   ]
 }
