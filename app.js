@@ -534,16 +534,35 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
   btn.disabled = true;
   btn.textContent = '✔ IVA añadido';
 
-  // Actualiza también el PDF de la factura actual
+  // Actualiza también el PDF de la factura
   document.getElementById('p-iva').textContent = money(iva);
   document.getElementById('p-tot').textContent = money(total);
 
   const foot = document.getElementById('pdf-foot-note');
   if (foot) {
-    foot.textContent = 'IVA (4 %) añadido al total de la factura. Transporte 10 % opcional.';
+    foot.textContent = 'IVA (4%) añadido al total de la factura. Transporte 10% opcional.';
   }
 
-  console.log(`✅ IVA (4 %) añadido correctamente — ${money(iva)} — Total nuevo: ${money(total)}`);
+  // ⚙️ Ajustar valores de estado y pendiente
+  const manual = parseNum(document.getElementById('pagado')?.value || 0);
+  const pagos = window.pagosTemp || [];
+  const pagadoParcial = pagos.reduce((a,b)=>a+(b.amount||0),0);
+  const pagadoTotal = manual + pagadoParcial;
+  const pendiente = Math.max(0, total - pagadoTotal);
+
+  document.getElementById('pendiente').textContent = money(pendiente);
+
+  if (total <= 0) {
+    document.getElementById('estado').value = 'pendiente';
+  } else if (pagadoTotal <= 0) {
+    document.getElementById('estado').value = 'pendiente';
+  } else if (pagadoTotal < total) {
+    document.getElementById('estado').value = 'parcial';
+  } else {
+    document.getElementById('estado').value = 'pagado';
+  }
+
+  console.log(`✅ IVA (4%) añadido — Nuevo total: ${money(total)} — Pendiente actualizado: ${money(pendiente)}`);
 });
 
 /* ---------- LISTA DE FACTURAS ---------- */
