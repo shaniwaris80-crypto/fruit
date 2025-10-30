@@ -192,7 +192,26 @@ function renderClientesLista(){
         const email=prompt('Email',c.email||'')??c.email;
         clientes[i]={...c,nombre,nif,dir,tel,email}; saveClientes(); renderClientesSelect(); renderClientesLista();
       }else{
-        if(confirm('¿Eliminar cliente?')){ clientes.splice(i,1); saveClientes(); renderClientesSelect(); renderClientesLista(); }
+        if(confirm('¿Eliminar cliente?')){ clientes.splice(i,1); saveClientes(); renderClientesSelect(); renderClientesLista(); // 🚀 También guardar en Supabase
+(async () => {
+  try {
+    const { error } = await supabase
+      .from('clientes')
+      .insert([
+        {
+          nombre: nombre,
+          direccion: dir,
+          nif: nif,
+          telefono: tel
+        }
+      ]);
+    if (error) console.warn('⚠️ Error subiendo a Supabase:', error);
+    else console.log('Cliente guardado en Supabase correctamente ✅');
+  } catch (e) {
+    console.error('❌ Error de conexión Supabase:', e);
+  }
+})();
+}
       }
     });
   });
