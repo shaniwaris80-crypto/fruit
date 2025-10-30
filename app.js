@@ -781,11 +781,44 @@ $('#selCliente')?.addEventListener('change', ()=>{
   fillClientFields(c);
 });
 $('#btnAddCliente')?.addEventListener('click', ()=>{
-  const nombre=prompt('Nombre del cliente:'); if(!nombre) return;
-  const nif=prompt('NIF/CIF:')||''; const dir=prompt('Dirección:')||''; const tel=prompt('Teléfono:')||''; const email=prompt('Email:')||'';
-  clientes.push({id:uid(), nombre,nif,dir,tel,email}); saveClientes(); renderClientesSelect(); renderClientesLista();
+  const nombre = prompt('Nombre del cliente:');
+  if (!nombre) return;
+
+  const nif = prompt('NIF/CIF:') || '';
+  const dir = prompt('Dirección:') || '';
+  const tel = prompt('Teléfono:') || '';
+  const email = prompt('Email:') || '';
+
+  // 💾 Guarda localmente (funciona offline)
+  clientes.push({ id: uid(), nombre, nif, dir, tel, email });
+  saveClientes();
+  renderClientesSelect();
+  renderClientesLista();
+
+  // ☁️ Intenta también guardar en Supabase
+  (async () => {
+    try {
+      const { error } = await supabase
+        .from('clientes')
+        .insert([
+          {
+            nombre: nombre,
+            direccion: dir,
+            nif: nif,
+            telefono: tel
+          }
+        ]);
+      if (error) {
+        console.warn('⚠️ No se pudo sincronizar con Supabase:', error.message);
+      } else {
+        console.log('✅ Cliente guardado en Supabase correctamente');
+      }
+    } catch (e) {
+      console.error('❌ Error de conexión con Supabase:', e.message);
+    }
+  })();
 });
-$('#buscarCliente')?.addEventListener('input', renderClientesLista);
+
 
 /* ---------- RESUMEN ---------- */
 function renderAll(){
