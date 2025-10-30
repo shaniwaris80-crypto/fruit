@@ -1077,5 +1077,18 @@ function drawResumen(){ drawKPIs(); }
     console.error('❌ Error en sincronización extendida:', e.message);
   }
 })();
+// --- BOTÓN: Añadir 4 % al subtotal ---
+document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
+  const subtotal = unMoney(document.getElementById('subtotal').textContent);
+  const transp = unMoney(document.getElementById('transp').textContent);
+  const iva = (subtotal + transp) * 0.04;
+  const total = subtotal + transp + iva;
+
+  // Actualiza los campos visuales
+  document.getElementById('iva').textContent = money(iva);
+  document.getElementById('total').textContent = money(total);
+
+  console.log(`✅ IVA (4%) añadido: ${money(iva)} — Nuevo total: ${money(total)}`);
+});
 
 })();
