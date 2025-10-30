@@ -851,7 +851,6 @@ function drawResumen(){ drawKPIs(); }
   renderPagosTemp();
   renderAll(); recalc();
 })();
-})();
 
 /* ================================
    🎨 SELECTOR DE PALETAS (4 temas)
