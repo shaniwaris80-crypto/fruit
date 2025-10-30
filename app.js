@@ -1171,10 +1171,18 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
   const iva = (subtotal + transp) * 0.04;
   const total = subtotal + transp + iva;
 
+document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
+  const subtotal = unMoney(document.getElementById('subtotal').textContent);
+  const transp = unMoney(document.getElementById('transp').textContent);
+  const iva = (subtotal + transp) * 0.04;
+  const total = subtotal + transp + iva;
+
   document.getElementById('iva').textContent = money(iva);
   document.getElementById('total').textContent = money(total);
 
   console.log(`✅ IVA (4%) añadido: ${money(iva)} — Nuevo total: ${money(total)}`);
+});
 
 // ✅ Cierre final del bloque principal
 })();
+
