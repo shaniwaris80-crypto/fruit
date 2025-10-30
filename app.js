@@ -445,7 +445,7 @@ function recalc() {
   fillPrint(ls,{subtotal,transporte,iva,total},null,null);
   drawResumen();
 }
-;['chkTransporte','chkIvaIncluido','estado','pagado'].forEach(id=>$('#'+id)?.addEventListener('input', recalc));
+;['chkTransporte','chkIvaIncluido','estado','pagado'].forEach(id=>$('#'+id)?.addEventListener('input', recalc))
 
 function fillPrint(lines, totals, _temp=null, f=null){
   $('#p-num').textContent = f?.numero || '(Sin guardar)';
