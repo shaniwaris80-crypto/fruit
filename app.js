@@ -1,16 +1,19 @@
-/* ==========================================================
-   🧩 FIX GLOBAL KEYS + LOAD/SAVE — Definiciones globales
-   ========================================================== */
+// --- GLOBAL FIX FOR KEYS AND LOAD/SAVE ---
 window.K_CLIENTES   = 'arslan_v104_clientes';
 window.K_PRODUCTOS  = 'arslan_v104_productos';
 window.K_FACTURAS   = 'arslan_v104_facturas';
 window.K_PRICEHIST  = 'arslan_v104_pricehist';
 
-window.load = function(k, fallback){
-  try { const v = JSON.parse(localStorage.getItem(k) || ''); return v ?? fallback; }
-  catch { return fallback; }
+window.load = function (k, fallback) {
+  try {
+    const v = JSON.parse(localStorage.getItem(k) || '');
+    return v ?? fallback;
+  } catch {
+    return fallback;
+  }
 };
-window.save = function(k, v){
+
+window.save = function (k, v) {
   localStorage.setItem(k, JSON.stringify(v));
 };
 
