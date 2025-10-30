@@ -1055,6 +1055,11 @@ function drawResumen(){ drawKPIs(); }
 (async function syncExtendida() {
   console.log('📊 Iniciando sincronización extendida...');
   let facturas = [];
+  window.addEventListener("load", async () => {
+  console.log("☁️ Iniciando sincronización bidireccional...");
+  await syncBidireccional();
+});
+
 
 
   if (!navigator.onLine) {
