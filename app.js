@@ -1,3 +1,5 @@
+(function(){
+"use strict";
 // --- SUPABASE INIT ---
 const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
@@ -11,8 +13,7 @@ supabase.from('clientes').select('*').then(console.log).catch(console.error);
    - 4 paletas, sin splash, logo kiwi solo en PDF, "FACTURA"
    - Clientes: selección segura por ID (evita datos cruzados)
 ======================================================= */
-(function(){
-"use strict";
+
 
 /* ---------- HELPERS ---------- */
 const $  = (s,root=document)=>root.querySelector(s);
