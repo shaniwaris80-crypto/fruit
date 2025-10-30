@@ -421,8 +421,6 @@ function recalc() {
   drawResumen();
 }
 
-
-
   const manual = parseNum($('#pagado')?.value||0);
   const parcial = pagosTemp.reduce((a,b)=>a+(b.amount||0),0);
   const pagadoTotal = manual + parcial;
