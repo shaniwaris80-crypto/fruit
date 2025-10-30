@@ -982,5 +982,100 @@ function drawResumen(){ drawKPIs(); }
     syncBidireccional();
   });
 })();
+/* ===========================================================
+   📈 SINCRONIZACIÓN EXTENDIDA — priceHist, KPIs, Pendientes
+   =========================================================== */
+(async function syncExtendida() {
+  console.log('📊 Iniciando sincronización extendida...');
+
+  if (!navigator.onLine) {
+    console.log('📴 Sin conexión, esperando para sincronizar resúmenes.');
+    window.addEventListener('online', syncExtendida, { once: true });
+    return;
+  }
+
+  try {
+    // === HISTORIAL DE PRECIOS (priceHist) ===
+    const localHist = load(K_PRICEHIST, {});
+    const localHistList = Object.entries(localHist).flatMap(([name, arr]) =>
+      arr.map(h => ({ producto: name, precio: h.price, fecha: h.date }))
+    );
+
+    const { data: cloudHist, error: errHist } = await supabase
+      .from('pricehist')
+      .select('*');
+
+    if (!errHist) {
+      // Combinar sin duplicar
+      const merged = [...cloudHist];
+      for (const h of localHistList) {
+        const exists = merged.some(r =>
+          r.producto === h.producto && Math.abs(new Date(r.fecha) - new Date(h.fecha)) < 1000
+        );
+        if (!exists) merged.push(h);
+      }
+      // Subir los nuevos
+      for (const h of merged) {
+        const found = cloudHist.find(r =>
+          r.producto === h.producto && r.fecha === h.fecha
+        );
+        if (!found) {
+          const { error: upErr } = await supabase.from('pricehist').insert([h]);
+          if (upErr) console.warn('⚠️ No se pudo subir a priceHist:', upErr.message);
+        }
+      }
+      console.log(`✅ priceHist sincronizado (${merged.length} registros)`);
+    } else {
+      console.warn('⚠️ Error al sincronizar priceHist:', errHist.message);
+    }
+
+    // === RESÚMENES / KPIs ===
+    const totalFacturas = facturas.length;
+    const totalClientes = clientes.length;
+    const ventasTotales = facturas.reduce((a,f)=>a+(f.totals?.total||0),0);
+    const pendientes = facturas.filter(f=>f.estado!=='pagado').length;
+
+    const resumenData = {
+      total_clientes: totalClientes,
+      total_facturas: totalFacturas,
+      ventas_totales: ventasTotales,
+      pendientes: pendientes,
+      fecha_sync: new Date().toISOString()
+    };
+
+    const { error: resumenErr } = await supabase
+      .from('resumenes')
+      .upsert(resumenData, { onConflict: ['fecha_sync'] });
+
+    if (!resumenErr) {
+      console.log('✅ Resumen de KPIs sincronizado con Supabase');
+    } else {
+      console.warn('⚠️ Error al subir resumen:', resumenErr.message);
+    }
+
+    // === PENDIENTES ===
+    const pendientesLista = facturas
+      .filter(f => f.estado !== 'pagado')
+      .map(f => ({
+        cliente: f.cliente?.nombre || '(sin cliente)',
+        pendiente: f.totals?.pendiente || 0,
+        fecha: f.fecha
+      }));
+
+    const { error: pendErr } = await supabase
+      .from('pendientes')
+      .upsert(pendientesLista);
+
+    if (!pendErr) {
+      console.log(`✅ Pendientes sincronizados (${pendientesLista.length} registros)`);
+    } else {
+      console.warn('⚠️ Error al subir pendientes:', pendErr.message);
+    }
+
+    console.log('✨ Sincronización extendida completada correctamente');
+  } catch (e) {
+    console.error('❌ Error en sincronización extendida:', e.message);
+  }
+})();
 
 })();
