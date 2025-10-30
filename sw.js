@@ -1,4 +1,14 @@
 // 🟢 INSTALACIÓN
+// sw.js — PWA FRUIT
+const CACHE_NAME = 'fruit-cache-v5';  // ✅ Definido antes de usarse
+const FILES_TO_CACHE = [
+  '/fruit/index.html',
+  '/fruit/style.css',
+  '/fruit/app.js',
+  '/fruit/favicon.ico',
+  '/fruit/offline.html'
+];
+
 self.addEventListener('install', event => {
   console.log('🍎 Service Worker instalado');
   event.waitUntil(
