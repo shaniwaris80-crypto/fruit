@@ -1173,5 +1173,7 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
   document.getElementById('iva').textContent = money(iva);
   document.getElementById('total').textContent = money(total);
 
-  console.log(`✅ IVA (4%) añadido: ${money(iva)} — Nuevo total: ${money(total)}`);
+    console.log(`✅ IVA (4%) añadido: ${money(iva)} — Nuevo total: ${money(total)}`);
 });
+})();
+
