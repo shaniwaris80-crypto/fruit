@@ -376,17 +376,51 @@ $('#btnAddPago')?.addEventListener('click', ()=>{
 });
 
 /* ---------- RECÁLCULO + PDF FILL + ESTADO ---------- */
-function recalc(){
+function recalc() {
   const ls = captureLineas();
-  let subtotal = 0; 
+  let subtotal = 0;
   ls.forEach(l => subtotal += lineImporte(l));
 
+  // 🚚 Transporte opcional (10 %)
   const transporte = $('#chkTransporte')?.checked ? subtotal * 0.10 : 0;
   const baseMasTrans = subtotal + transporte;
 
-  // ✅ Ahora el IVA del 4% se suma al total real
+  // 💶 IVA 4% — ahora se aplica al total real
   const iva = baseMasTrans * 0.04;
   const total = baseMasTrans + iva;
+
+  // 💰 Pagos y pendientes
+  const manual = parseNum($('#pagado')?.value || 0);
+  const parcial = pagosTemp.reduce((a, b) => a + (b.amount || 0), 0);
+  const pagadoTotal = manual + parcial;
+  const pendiente = Math.max(0, total - pagadoTotal);
+
+  // 🧾 Mostrar resultados
+  $('#subtotal').textContent = money(subtotal);
+  $('#transp').textContent = money(transporte);
+  $('#iva').textContent = money(iva);
+  $('#total').textContent = money(total);
+  $('#pendiente').textContent = money(pendiente);
+
+  // 🔄 Actualizar estado automáticamente
+  if (total <= 0) $('#estado').value = 'pendiente';
+  else if (pagadoTotal <= 0) $('#estado').value = 'pendiente';
+  else if (pagadoTotal < total) $('#estado').value = 'parcial';
+  else $('#estado').value = 'pagado';
+
+  // 🧾 Pie de PDF
+  const foot = $('#pdf-foot-note');
+  if (foot) {
+    foot.textContent = $('#chkIvaIncluido')?.checked
+      ? 'IVA (4%) incluido en el total.'
+      : 'IVA (4%) aplicado al total. Transporte 10% opcional.';
+  }
+
+  // 🔁 Rellenar zona PDF y resumen
+  fillPrint(ls, { subtotal, transporte, iva, total }, null, null);
+  drawResumen();
+}
+
 
 
   const manual = parseNum($('#pagado')?.value||0);
