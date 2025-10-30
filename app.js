@@ -1055,12 +1055,23 @@ function drawResumen(){ drawKPIs(); }
 (async function syncExtendida() {
   console.log('📊 Iniciando sincronización extendida...');
   let facturas = [];
+
+  // Espera a que syncBidireccional exista antes de llamarla
   window.addEventListener("load", async () => {
-  console.log("☁️ Iniciando sincronización bidireccional...");
-  await syncBidireccional();
-});
-
-
+    console.log("☁️ Iniciando sincronización bidireccional...");
+    if (typeof syncBidireccional === "function") {
+      await syncBidireccional();
+    } else {
+      console.warn("⚠️ La función syncBidireccional aún no está lista. Reintentando en 2 segundos...");
+      setTimeout(async () => {
+        if (typeof syncBidireccional === "function") {
+          await syncBidireccional();
+        } else {
+          console.error("❌ No se encontró syncBidireccional tras el reintento.");
+        }
+      }, 2000);
+    }
+  });
 
   if (!navigator.onLine) {
     console.log('📴 Sin conexión, esperando para sincronizar resúmenes.');
@@ -1080,7 +1091,6 @@ function drawResumen(){ drawKPIs(); }
       .select('*');
 
     if (!errHist) {
-      // Combinar sin duplicar
       const merged = [...cloudHist];
       for (const h of localHistList) {
         const exists = merged.some(r =>
@@ -1088,7 +1098,7 @@ function drawResumen(){ drawKPIs(); }
         );
         if (!exists) merged.push(h);
       }
-      // Subir los nuevos
+
       for (const h of merged) {
         const found = cloudHist.find(r =>
           r.producto === h.producto && r.fecha === h.fecha
@@ -1105,7 +1115,7 @@ function drawResumen(){ drawKPIs(); }
 
     // === RESÚMENES / KPIs ===
     const totalFacturas = facturas.length;
-    const totalClientes = clientes.length;
+    const totalClientes = (typeof clientes !== "undefined") ? clientes.length : 0;
     const ventasTotales = facturas.reduce((a,f)=>a+(f.totals?.total||0),0);
     const pendientes = facturas.filter(f=>f.estado!=='pagado').length;
 
@@ -1151,6 +1161,7 @@ function drawResumen(){ drawKPIs(); }
     console.error('❌ Error en sincronización extendida:', e.message);
   }
 })();
+
 // --- BOTÓN: Añadir 4 % al subtotal ---
 document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
   const subtotal = unMoney(document.getElementById('subtotal').textContent);
@@ -1164,5 +1175,3 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
 
   console.log(`✅ IVA (4%) añadido: ${money(iva)} — Nuevo total: ${money(total)}`);
 });
-
-})();
