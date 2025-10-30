@@ -276,7 +276,7 @@ function renderProductos(){
         const row=b.closest('.product-row');
         const get=f=>row.querySelector(`[data-f="${f}"]`).value.trim();
         const name=get('name'); const mode=(get('mode')||null);
-        const boxkgStr=get('boxkg'); const boxkg=boxkgStr===''?null:parseNum(boxkgStr);
+        const boxkgStr=get('boxkg'); const boxkg=boxkgStr===''?null:parseNum(Str);
         const priceStr=get('price'); const price=priceStr===''?null:parseNum(priceStr);
         const origin=get('origin')||null;
         productos[i]={name,mode,boxkg,price,origin}; saveProductos(); populateProductDatalist(); renderProductos();
