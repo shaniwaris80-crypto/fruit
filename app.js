@@ -377,12 +377,17 @@ $('#btnAddPago')?.addEventListener('click', ()=>{
 
 /* ---------- RECÁLCULO + PDF FILL + ESTADO ---------- */
 function recalc(){
-  const ls=captureLineas();
-  let subtotal=0; ls.forEach(l=> subtotal+=lineImporte(l));
-  const transporte = $('#chkTransporte')?.checked ? subtotal*0.10 : 0;
+  const ls = captureLineas();
+  let subtotal = 0; 
+  ls.forEach(l => subtotal += lineImporte(l));
+
+  const transporte = $('#chkTransporte')?.checked ? subtotal * 0.10 : 0;
   const baseMasTrans = subtotal + transporte;
-  const iva = baseMasTrans * 0.04; // informativo
-  const total = baseMasTrans;
+
+  // ✅ Ahora el IVA del 4% se suma al total real
+  const iva = baseMasTrans * 0.04;
+  const total = baseMasTrans + iva;
+
 
   const manual = parseNum($('#pagado')?.value||0);
   const parcial = pagosTemp.reduce((a,b)=>a+(b.amount||0),0);
