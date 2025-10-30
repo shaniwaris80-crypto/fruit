@@ -421,11 +421,12 @@ function recalc() {
   // 🔁 Rellenar zona PDF y resumen
   fillPrint(ls, { subtotal, transporte, iva, total: totalConIVA }, null, null);
   drawResumen();
-}
+} // ← aquí cierra la función recalc SIN punto y coma
 
 ;['chkTransporte','chkIvaIncluido','estado','pagado'].forEach(
   id => $('#' + id)?.addEventListener('input', recalc)
-);
+); // ← aquí sí va el punto y coma
+
 
 function fillPrint(lines, totals, _temp = null, f = null) {
   $('#p-num').textContent = f?.numero || '(Sin guardar)';
