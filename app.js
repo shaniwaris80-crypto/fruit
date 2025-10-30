@@ -1176,7 +1176,5 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
   console.log(`✅ IVA (4%) añadido: ${money(iva)} — Nuevo total: ${money(total)}`);
 });
 
-// 👇 ESTA LÍNEA NUEVA CIERRA LA FUNCIÓN PRINCIPAL
+// ✅ Cierre final del bloque principal
 })();
-
-
