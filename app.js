@@ -1,5 +1,3 @@
-(function(){
-"use strict";
 // --- SUPABASE INIT ---
 const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
@@ -13,7 +11,8 @@ supabase.from('clientes').select('*').then(console.log).catch(console.error);
    - 4 paletas, sin splash, logo kiwi solo en PDF, "FACTURA"
    - Clientes: selección segura por ID (evita datos cruzados)
 ======================================================= */
-
+(function(){
+"use strict";
 
 /* ---------- HELPERS ---------- */
 const $  = (s,root=document)=>root.querySelector(s);
@@ -377,61 +376,43 @@ $('#btnAddPago')?.addEventListener('click', ()=>{
 });
 
 /* ---------- RECÁLCULO + PDF FILL + ESTADO ---------- */
-function recalc() {
-  const ls = captureLineas();
-  let subtotal = 0;
-  ls.forEach(l => subtotal += lineImporte(l));
-
-  // 🚚 Transporte opcional (10 %)
-  const transporte = $('#chkTransporte')?.checked ? subtotal * 0.10 : 0;
+function recalc(){
+  const ls=captureLineas();
+  let subtotal=0; ls.forEach(l=> subtotal+=lineImporte(l));
+  const transporte = $('#chkTransporte')?.checked ? subtotal*0.10 : 0;
   const baseMasTrans = subtotal + transporte;
+  const iva = baseMasTrans * 0.04; // informativo
+  const total = baseMasTrans;
 
-  // 💶 IVA 4% — ahora se aplica al total real
-  const iva = baseMasTrans * 0.04;
-  const total = baseMasTrans + iva;
-
-  // 💰 Pagos y pendientes
-  const manual = parseNum($('#pagado')?.value || 0);
-  const parcial = pagosTemp.reduce((a, b) => a + (b.amount || 0), 0);
+  const manual = parseNum($('#pagado')?.value||0);
+  const parcial = pagosTemp.reduce((a,b)=>a+(b.amount||0),0);
   const pagadoTotal = manual + parcial;
   const pendiente = Math.max(0, total - pagadoTotal);
 
-  // 🧾 Mostrar resultados
   $('#subtotal').textContent = money(subtotal);
   $('#transp').textContent = money(transporte);
   $('#iva').textContent = money(iva);
-  // ✅ TOTAL ahora incluye IVA
-  const totalConIVA = baseMasTrans + iva;
-  $('#total').textContent = money(totalConIVA);
+  $('#total').textContent = money(total);
   $('#pendiente').textContent = money(pendiente);
 
-  // 🔄 Actualizar estado automáticamente
-  if (totalConIVA <= 0) $('#estado').value = 'pendiente';
-  else if (pagadoTotal <= 0) $('#estado').value = 'pendiente';
-  else if (pagadoTotal < totalConIVA) $('#estado').value = 'parcial';
-  else $('#estado').value = 'pagado';
+  if(total<=0){ $('#estado').value='pendiente'; }
+  else if(pagadoTotal<=0){ $('#estado').value='pendiente'; }
+  else if(pagadoTotal<total){ $('#estado').value='parcial'; }
+  else { $('#estado').value='pagado'; }
 
-  // 🧾 Pie de PDF
-  const foot = $('#pdf-foot-note');
-  if (foot) {
-    foot.textContent = $('#chkIvaIncluido')?.checked
-      ? 'IVA (4%) incluido en el total.'
-      : 'IVA (4%) aplicado al total. Transporte 10% opcional.';
+  const foot=$('#pdf-foot-note');
+  if(foot){
+    foot.textContent = $('#chkIvaIncluido')?.checked ? 'IVA incluido en los precios.' : 'IVA (4%) mostrado como informativo. Transporte 10% opcional.';
   }
 
-  // 🔁 Rellenar zona PDF y resumen
-  fillPrint(ls, { subtotal, transporte, iva, total: totalConIVA }, null, null);
+  fillPrint(ls,{subtotal,transporte,iva,total},null,null);
   drawResumen();
-} // ← aquí cierra la función recalc SIN punto y coma
+}
+;['chkTransporte','chkIvaIncluido','estado','pagado'].forEach(id=>$('#'+id)?.addEventListener('input', recalc));
 
-;['chkTransporte','chkIvaIncluido','estado','pagado'].forEach(
-  id => $('#' + id)?.addEventListener('input', recalc)
-); // ← aquí sí va el punto y coma
-
-
-function fillPrint(lines, totals, _temp = null, f = null) {
+function fillPrint(lines, totals, _temp=null, f=null){
   $('#p-num').textContent = f?.numero || '(Sin guardar)';
-  $('#p-fecha').textContent = (f ? new Date(f.fecha) : new Date()).toLocaleString();
+  $('#p-fecha').textContent = (f?new Date(f.fecha):new Date()).toLocaleString();
 
   $('#p-prov').innerHTML = `
     <div><strong>${escapeHTML(f?.proveedor?.nombre || $('#provNombre').value || '')}</strong></div>
@@ -446,41 +427,49 @@ function fillPrint(lines, totals, _temp = null, f = null) {
     <div>${escapeHTML(f?.cliente?.tel || $('#cliTel').value || '')} · ${escapeHTML(f?.cliente?.email || $('#cliEmail').value || '')}</div>
   `;
 
-  const tbody = $('#p-tabla tbody'); 
-  tbody.innerHTML = '';
-  (lines || []).forEach(l => {
-    const tr = document.createElement('tr');
+  const tbody = $('#p-tabla tbody'); tbody.innerHTML='';
+  (lines||[]).forEach(l=>{
+    const tr=document.createElement('tr');
     tr.innerHTML = `
       <td>${escapeHTML(l.name)}</td>
-      <td>${escapeHTML(l.mode || '')}</td>
-      <td>${l.qty || ''}</td>
-      <td>${l.gross ? l.gross.toFixed(2) : ''}</td>
-      <td>${l.tare ? l.tare.toFixed(2) : ''}</td>
-      <td>${l.net ? l.net.toFixed(2) : ''}</td>
+      <td>${escapeHTML(l.mode||'')}</td>
+      <td>${l.qty||''}</td>
+      <td>${l.gross?l.gross.toFixed(2):''}</td>
+      <td>${l.tare?l.tare.toFixed(2):''}</td>
+      <td>${l.net?l.net.toFixed(2):''}</td>
       <td>${money(l.price)}</td>
-      <td>${escapeHTML(l.origin || '')}</td>
-      <td>${money((l.mode === 'unidad') ? l.qty * l.price : l.net * l.price)}</td>
+      <td>${escapeHTML(l.origin||'')}</td>
+      <td>${money((l.mode==='unidad') ? l.qty*l.price : l.net*l.price)}</td>
     `;
     tbody.appendChild(tr);
   });
 
-  $('#p-sub').textContent = money(totals?.subtotal || 0);
-  $('#p-tra').textContent = money(totals?.transporte || 0);
-  $('#p-iva').textContent = money(totals?.iva || 0);
-  $('#p-tot').textContent = money(totals?.total || 0);
+  $('#p-sub').textContent = money(totals?.subtotal||0);
+  $('#p-tra').textContent = money(totals?.transporte||0);
+  $('#p-iva').textContent = money(totals?.iva||0);
+  $('#p-tot').textContent = money(totals?.total||0);
   $('#p-estado').textContent = f?.estado || $('#estado')?.value || 'Impagada';
   $('#p-metodo').textContent = f?.metodo || $('#metodoPago')?.value || 'Efectivo';
-  $('#p-obs').textContent = f?.obs || ($('#observaciones')?.value || '—');
+  $('#p-obs').textContent = f?.obs || ($('#observaciones')?.value||'—');
 
   // QR con datos básicos (igual que antes)
-  try {
+  try{
     const canvas = $('#p-qr');
     const numero = f?.numero || '(Sin guardar)';
     const cliente = f?.cliente?.nombre || $('#cliNombre').value || '';
-    const payload = `ARSLAN-Factura|${numero}|${cliente}|${money(totals?.total || 0)}|${$('#p-estado').textContent}`;
-    window.QRCode.toCanvas(canvas, payload, { width: 92, margin: 0 });
-  } catch (e) {}
+    const payload = `ARSLAN-Factura|${numero}|${cliente}|${money(totals?.total||0)}|${$('#p-estado').textContent}`;
+    window.QRCode.toCanvas(canvas, payload, {width:92, margin:0});
+  }catch(e){}
 }
+
+/* ---------- GUARDAR / NUEVA / PDF ---------- */
+function genNumFactura(){ const d=new Date(), pad=n=>String(n).padStart(2,'0'); return `FA-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`; }
+function saveFacturas(){ save(K_FACTURAS, facturas); }
+
+$('#btnGuardar')?.addEventListener('click', ()=>{
+  const ls=captureLineas(); if(ls.length===0){ alert('Añade al menos una línea.'); return; }
+  const numero=genNumFactura(); const now=todayISO();
+  ls.forEach(l=> pushPriceHistory(l.name, l.price));
 
   const subtotal=unMoney($('#subtotal').textContent);
   const transporte=unMoney($('#transp').textContent);
@@ -847,16 +836,12 @@ function drawResumen(){ drawKPIs(); }
 
   setProviderDefaultsIfEmpty();
 
-  const tb=$('#lineasBody'); 
-  if(tb && tb.children.length===0){ 
-    for(let i=0;i<5;i++) addLinea(); 
-     
+  const tb=$('#lineasBody'); if(tb && tb.children.length===0){ for(let i=0;i<5;i++) addLinea(); }
 
   renderPagosTemp();
-  renderAll(); 
-  recalc();
+  renderAll(); recalc();
 })();
-
+})();
 
 /* ================================
    🎨 SELECTOR DE PALETAS (4 temas)
