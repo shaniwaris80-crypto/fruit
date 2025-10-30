@@ -259,7 +259,7 @@ function renderProductos(){
       <select data-f="mode">
         <option value="">—</option><option value="kg"${p.mode==='kg'?' selected':''}>kg</option><option value="unidad"${p.mode==='unidad'?' selected':''}>unidad</option><option value="caja"${p.mode==='caja'?' selected':''}>caja</option>
       </select>
-      <input type="number" step="0.01" data-f="boxKg" placeholder="Kg/caja" value="${p.boxKg??''}" />
+      <input type="number" step="0.01" data-f="boxkg" placeholder="Kg/caja" value="${p.boxkg??''}" />
       <input type="number" step="0.01" data-f="price" placeholder="€ base" value="${p.price??''}" />
       <input data-f="origin" placeholder="Origen" value="${escapeHTML(p.origin||'')}" />
       <button data-e="save" data-i="${idx}">💾 Guardar</button>
@@ -276,10 +276,10 @@ function renderProductos(){
         const row=b.closest('.product-row');
         const get=f=>row.querySelector(`[data-f="${f}"]`).value.trim();
         const name=get('name'); const mode=(get('mode')||null);
-        const boxKgStr=get('boxKg'); const boxKg=boxKgStr===''?null:parseNum(boxKgStr);
+        const boxkgStr=get('boxkg'); const boxkg=boxkgStr===''?null:parseNum(boxkgStr);
         const priceStr=get('price'); const price=priceStr===''?null:parseNum(priceStr);
         const origin=get('origin')||null;
-        productos[i]={name,mode,boxKg,price,origin}; saveProductos(); populateProductDatalist(); renderProductos();
+        productos[i]={name,mode,boxkg,price,origin}; saveProductos(); populateProductDatalist(); renderProductos();
       }
     });
   });
@@ -347,7 +347,7 @@ function addLinea(){
     let n=0;
 
     if(g>0 || t>0){ n=Math.max(0,g-t); }
-    else if(m==='caja'){ const p=findProducto(name.value); const kg=p?.boxKg||0; n=q*kg; }
+    else if(m==='caja'){ const p=findProducto(name.value); const kg=p?.boxkg||0; n=q*kg; }
     else if(m==='kg'){ n=q; }
     else if(m==='unidad'){ n=q; }
 
@@ -987,9 +987,9 @@ function drawResumen(){ drawKPIs(); }
       total: f.totals?.total || 0, estado: f.estado
     }), mapIn: r => r },
     productos: { key: K_PRODUCTOS, mapOut: p => ({
-      name: p.name, mode: p.mode, boxKg: p.boxKg, price: p.price, origin: p.origin
+      name: p.name, mode: p.mode, boxkg: p.boxkg, price: p.price, origin: p.origin
     }), mapIn: r => ({
-      name: r.name, mode: r.mode, boxKg: r.boxKg, price: r.price, origin: r.origin
+      name: r.name, mode: r.mode, boxkg: r.boxkg, price: r.price, origin: r.origin
     }) }
   };
 
