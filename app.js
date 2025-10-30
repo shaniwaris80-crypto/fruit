@@ -1054,6 +1054,8 @@ function drawResumen(){ drawKPIs(); }
    =========================================================== */
 (async function syncExtendida() {
   console.log('📊 Iniciando sincronización extendida...');
+  let facturas = [];
+
 
   if (!navigator.onLine) {
     console.log('📴 Sin conexión, esperando para sincronizar resúmenes.');
