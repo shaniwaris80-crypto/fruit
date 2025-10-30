@@ -1075,8 +1075,7 @@ function drawResumen(){ drawKPIs(); }
     console.log('✨ Sincronización extendida completada correctamente');
   } catch (e) {
     console.error('❌ Error en sincronización extendida:', e.message);
- 
-
+  }
 })();
 
 })();
