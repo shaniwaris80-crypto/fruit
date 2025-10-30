@@ -1,89 +1,47 @@
-/* ===========================================================
-   📦 ARSLAN PRO KIWI — Service Worker (versión estable)
-   Funciones:
-   - Cachea todos los archivos clave (modo offline completo)
-   - Actualiza automáticamente en cada nueva versión
-   - Limpia caches antiguos
-   =========================================================== */
+// This is the "Offline page" service worker
 
-const CACHE_NAME = "arslan-pro-v104-kiwi";
-const FILES_TO_CACHE = [
-  "./",                // página principal
-  "./index.html",
-  "./style.css",
-  "./app.js",
-  "./logo.png",
-  "./manifest.json",
-  "https://cdn.jsdelivr.net/npm/chart.js",
-  "https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js",
-  "https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js",
-  "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"
-];
+importScripts('https://storage.googleapis.com/workbox-cdn/releases/5.1.2/workbox-sw.js');
 
-// 🧩 Instalar Service Worker y cachear archivos base
-self.addEventListener("install", event => {
-  console.log("🟢 Service Worker instalado");
-  event.waitUntil(
-    caches.open(CACHE_NAME)
-      .then(cache => {
-        console.log("📦 Cacheando archivos esenciales…");
-        return cache.addAll(FILES_TO_CACHE);
-      })
-      .then(() => self.skipWaiting())
-      .catch(err => console.error("❌ Error al cachear archivos:", err))
-  );
-});
+const CACHE = "pwabuilder-page";
 
-// 🧹 Activar y limpiar caches antiguos
-self.addEventListener("activate", event => {
-  console.log("🧹 Activando nuevo Service Worker, limpiando versiones viejas…");
-  event.waitUntil(
-    caches.keys().then(keys =>
-      Promise.all(
-        keys.map(key => {
-          if (key !== CACHE_NAME) {
-            console.log("🗑️ Borrando caché antigua:", key);
-            return caches.delete(key);
-          }
-        })
-      )
-    )
-  );
-  self.clients.claim();
-});
+// TODO: replace the following with the correct offline fallback page i.e.: const offlineFallbackPage = "offline.html";
+const offlineFallbackPage = "ToDo-replace-this-name.html";
 
-// ⚡ Interceptar peticiones y servir desde caché o red
-self.addEventListener("fetch", event => {
-  event.respondWith(
-    caches.match(event.request)
-      .then(resp => {
-        // Si existe en caché, devuélvelo
-        if (resp) return resp;
-
-        // Si no, intenta obtenerlo de la red
-        return fetch(event.request).then(fetchResp => {
-          // Guarda en caché una copia (solo si es GET)
-          if (event.request.method === "GET") {
-            const clone = fetchResp.clone();
-            caches.open(CACHE_NAME).then(cache => {
-              cache.put(event.request, clone);
-            });
-          }
-          return fetchResp;
-        });
-      })
-      .catch(() => {
-        // Fallback en caso de estar offline sin caché
-        if (event.request.destination === "document") {
-          return caches.match("./index.html");
-        }
-      })
-  );
-});
-
-// 🔄 Forzar actualización manual (útil al depurar)
-self.addEventListener("message", event => {
-  if (event.data === "skipWaiting") {
+self.addEventListener("message", (event) => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
+  }
+});
+
+self.addEventListener('install', async (event) => {
+  event.waitUntil(
+    caches.open(CACHE)
+      .then((cache) => cache.add(offlineFallbackPage))
+  );
+});
+
+if (workbox.navigationPreload.isSupported()) {
+  workbox.navigationPreload.enable();
+}
+
+self.addEventListener('fetch', (event) => {
+  if (event.request.mode === 'navigate') {
+    event.respondWith((async () => {
+      try {
+        const preloadResp = await event.preloadResponse;
+
+        if (preloadResp) {
+          return preloadResp;
+        }
+
+        const networkResp = await fetch(event.request);
+        return networkResp;
+      } catch (error) {
+
+        const cache = await caches.open(CACHE);
+        const cachedResp = await cache.match(offlineFallbackPage);
+        return cachedResp;
+      }
+    })());
   }
 });
