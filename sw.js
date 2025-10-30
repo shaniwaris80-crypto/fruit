@@ -1,31 +1,21 @@
-// sw.js — PWA FRUIT con soporte offline (versión final corregida)
-const CACHE_NAME = 'fruit-cache-v3';
-const FILES_TO_CACHE = [
-  '/fruit/',
-  '/fruit/index.html',
-  '/fruit/style.css',
-  '/fruit/app.js',
-  '/fruit/favicon.ico',
-  '/fruit/offline.html'
-];
-
-// 🟢 INSTALAR: precachear archivos existentes
+// 🟢 INSTALACIÓN
 self.addEventListener('install', event => {
   console.log('🍎 Service Worker instalado');
   event.waitUntil(
     caches.open(CACHE_NAME).then(async cache => {
-      const results = await Promise.allSettled(
-        FILES_TO_CACHE.map(url => cache.add(url))
-      );
-      results.forEach(r => {
-        if (r.status === 'rejected') {
-          console.warn('⚠️ No se pudo cachear:', r.reason);
+      for (const url of FILES_TO_CACHE) {
+        try {
+          await cache.add(url);
+          console.log('✅ Cacheado:', url);
+        } catch (err) {
+          console.warn('⚠️ No se pudo cachear:', url, err);
         }
-      });
+      }
     })
   );
   self.skipWaiting();
 });
+
 
 // 🟠 ACTIVAR: eliminar cachés antiguos
 self.addEventListener('activate', event => {
