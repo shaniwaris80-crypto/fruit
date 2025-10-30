@@ -379,10 +379,11 @@ $('#btnAddPago')?.addEventListener('click', ()=>{
 function recalc(){
   const ls=captureLineas();
   let subtotal=0; ls.forEach(l=> subtotal+=lineImporte(l));
-  const transporte = $('#chkTransporte')?.checked ? subtotal*0.10 : 0;
-  const baseMasTrans = subtotal + transporte;
-  const iva = baseMasTrans * 0.04; // informativo
-  const total = baseMasTrans;
+ const transporte = $('#chkTransporte')?.checked ? subtotal*0.10 : 0;
+const baseMasTrans = subtotal + transporte;
+const iva = baseMasTrans * 0.04; // informativo
+const total = baseMasTrans;
+
 
   const manual = parseNum($('#pagado')?.value||0);
   const parcial = pagosTemp.reduce((a,b)=>a+(b.amount||0),0);
@@ -400,10 +401,15 @@ function recalc(){
   else if(pagadoTotal<total){ $('#estado').value='parcial'; }
   else { $('#estado').value='pagado'; }
 
-  const foot=$('#pdf-foot-note');
-  if(foot){
-    foot.textContent = $('#chkIvaIncluido')?.checked ? 'IVA incluido en los precios.' : 'IVA (4%) mostrado como informativo. Transporte 10% opcional.';
+const foot = $('#pdf-foot-note');
+if (foot) {
+  if ($('#chkIvaIncluido')?.checked) {
+    foot.textContent = 'IVA (4%) añadido al total de la factura. Transporte 10% opcional.';
+  } else {
+    foot.textContent = 'IVA (4%) mostrado como informativo. Transporte 10% opcional.';
   }
+}
+
 
   fillPrint(ls,{subtotal,transporte,iva,total},null,null);
   drawResumen();
