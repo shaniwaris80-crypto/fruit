@@ -898,4 +898,89 @@ function drawResumen(){ drawKPIs(); }
   const guardadoDark = localStorage.getItem('arslan_dark') === 'true';
   aplicarTema(guardadoTema);
   if(guardadoDark) toggleDark();
+   /* ===========================================================
+   🔁 SINCRONIZACIÓN BIDIRECCIONAL CON SUPABASE
+   - Descarga datos al abrir.
+   - Sube nuevos datos o cambios cuando hay conexión.
+   - Mantiene todo sincronizado entre dispositivos.
+   =========================================================== */
+(async function syncBidireccional() {
+  console.log('☁️ Iniciando sincronización bidireccional...');
+
+  // ✅ Tablas que queremos sincronizar
+  const TABLAS = {
+    clientes: { key: K_CLIENTES, mapOut: c => ({
+      id: c.id, nombre: c.nombre, direccion: c.dir, nif: c.nif, telefono: c.tel
+    }), mapIn: r => ({
+      id: r.id || uid(), nombre: r.nombre || '', dir: r.direccion || '',
+      nif: r.nif || '', tel: r.telefono || '', email: r.email || ''
+    }) },
+    facturas: { key: K_FACTURAS, mapOut: f => ({
+      numero: f.numero, fecha: f.fecha, cliente: f.cliente?.nombre,
+      total: f.totals?.total || 0, estado: f.estado
+    }), mapIn: r => r },
+    productos: { key: K_PRODUCTOS, mapOut: p => ({
+      name: p.name, mode: p.mode, boxKg: p.boxKg, price: p.price, origin: p.origin
+    }), mapIn: r => ({
+      name: r.name, mode: r.mode, boxKg: r.boxKg, price: r.price, origin: r.origin
+    }) }
+  };
+
+  // 🔁 Función para sincronizar una tabla
+  async function syncTable(nombre, cfg) {
+    console.log(`🔄 Sincronizando tabla: ${nombre}...`);
+    const localData = load(cfg.key, []);
+
+    try {
+      // --- DESCARGA ---
+      const { data: cloudData, error: errDown } = await supabase.from(nombre).select('*');
+      if (errDown) throw new Error(errDown.message);
+
+      // --- COMBINA ---
+      const merged = [...localData];
+      for (const r of cloudData) {
+        const existe = merged.find(x => (x.id && r.id) ? x.id === r.id : false);
+        if (!existe) merged.push(cfg.mapIn(r));
+      }
+
+      // --- GUARDA LOCAL ---
+      save(cfg.key, merged);
+
+      // --- SUBIDA (solo los que no estén en nube) ---
+      for (const item of localData) {
+        const existsInCloud = cloudData.some(r =>
+          (r.id && item.id && r.id === item.id) ||
+          (r.nombre && item.nombre && r.nombre === item.nombre)
+        );
+        if (!existsInCloud) {
+          const toUpload = cfg.mapOut(item);
+          const { error: errUp } = await supabase.from(nombre).insert([toUpload]);
+          if (errUp) console.warn(`⚠️ No se pudo subir ${nombre}:`, errUp.message);
+        }
+      }
+
+      console.log(`✅ ${nombre} sincronizada (${merged.length} registros locales)`);
+    } catch (e) {
+      console.warn(`⚠️ Error al sincronizar ${nombre}:`, e.message);
+    }
+  }
+
+  // 🌐 Comprueba conexión antes de sincronizar
+  if (navigator.onLine) {
+    for (const [nombre, cfg] of Object.entries(TABLAS)) {
+      await syncTable(nombre, cfg);
+    }
+    console.log('✨ Sincronización bidireccional completada');
+    renderAll();
+  } else {
+    console.log('📴 Sin conexión. Se usará solo la base local.');
+  }
+
+  // 🔔 Reintenta sincronizar al reconectarse
+  window.addEventListener('online', () => {
+    console.log('🔌 Conexión restaurada. Reintentando sincronizar...');
+    syncBidireccional();
+  });
+})();
+
 })();
