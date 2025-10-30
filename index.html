@@ -3,7 +3,7 @@
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', async () => {
     try {
-      const reg = await navigator.serviceWorker.register('/V9PRUEBAS/sw.js');
+      const reg = await navigator.serviceWorker.register('/fruit/sw.js');
       console.log('Service Worker registrado:', reg.scope);
     } catch (err) {
       console.warn('Error registrando SW:', err);
@@ -11,6 +11,7 @@ if ('serviceWorker' in navigator) {
   });
 }
 </script>
+
 
 <html lang="es">
 <head>
