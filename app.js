@@ -516,6 +516,35 @@ $('#btnImprimir')?.addEventListener('click', ()=>{
   const opt = { margin:[10,10,10,10], filename:file, image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2,useCORS:true}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'} };
   window.html2pdf().set(opt).from(element).save();
 });
+// =====================================================
+// 🔘 BOTÓN: Añadir 4 % al subtotal (IVA real)
+// =====================================================
+document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
+  const subtotal = unMoney(document.getElementById('subtotal').textContent);
+  const transporte = unMoney(document.getElementById('transp').textContent);
+  const iva = (subtotal + transporte) * 0.04;
+  const total = subtotal + transporte + iva;
+
+  // Actualiza visualmente
+  document.getElementById('iva').textContent = money(iva);
+  document.getElementById('total').textContent = money(total);
+
+  // 🔒 Desactiva el botón para evitar sumas dobles
+  const btn = document.getElementById('btnSumarIVA');
+  btn.disabled = true;
+  btn.textContent = '✔ IVA añadido';
+
+  // Actualiza también el PDF de la factura actual
+  document.getElementById('p-iva').textContent = money(iva);
+  document.getElementById('p-tot').textContent = money(total);
+
+  const foot = document.getElementById('pdf-foot-note');
+  if (foot) {
+    foot.textContent = 'IVA (4 %) añadido al total de la factura. Transporte 10 % opcional.';
+  }
+
+  console.log(`✅ IVA (4 %) añadido correctamente — ${money(iva)} — Total nuevo: ${money(total)}`);
+});
 
 /* ---------- LISTA DE FACTURAS ---------- */
 function badgeEstado(f){
