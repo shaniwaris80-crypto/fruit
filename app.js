@@ -1,16 +1,18 @@
 /* ==========================================================
-   🔧 GLOBAL HELPERS (accesibles en toda la app)
+   🧩 FIX GLOBAL KEYS + LOAD/SAVE — Definiciones globales
    ========================================================== */
-const K_CLIENTES   = 'arslan_v104_clientes';
-const K_PRODUCTOS  = 'arslan_v104_productos';
-const K_FACTURAS   = 'arslan_v104_facturas';
-const K_PRICEHIST  = 'arslan_v104_pricehist';
+window.K_CLIENTES   = 'arslan_v104_clientes';
+window.K_PRODUCTOS  = 'arslan_v104_productos';
+window.K_FACTURAS   = 'arslan_v104_facturas';
+window.K_PRICEHIST  = 'arslan_v104_pricehist';
 
-function load(k, fallback){
+window.load = function(k, fallback){
   try { const v = JSON.parse(localStorage.getItem(k) || ''); return v ?? fallback; }
   catch { return fallback; }
-}
-function save(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+};
+window.save = function(k, v){
+  localStorage.setItem(k, JSON.stringify(v));
+};
 
 // --- SUPABASE INIT ---
 const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
