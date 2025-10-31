@@ -1492,4 +1492,58 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
 
   console.log("✨ Escuchando cambios en tiempo real de CLIENTES y PRODUCTOS.");
 })();
+/* ===========================================================
+   ☁️ AUTO SYNC — Carga completa desde Supabase al abrir la app
+   =========================================================== */
+(async function autoSyncAlAbrir() {
+  console.log("🔁 Iniciando carga inicial desde Supabase...");
+
+  // Espera a que supabase esté disponible
+  let intentos = 0;
+  while (typeof supabase === "undefined" && intentos < 10) {
+    await new Promise(r => setTimeout(r, 500));
+    intentos++;
+  }
+
+  if (typeof supabase === "undefined") {
+    console.warn("⚠️ Supabase no disponible, reintenta al recargar.");
+    return;
+  }
+
+  try {
+    // === CLIENTES ===
+    const { data: clientes, error: errC } = await supabase.from("clientes").select("*");
+    if (!errC && Array.isArray(clientes)) {
+      localStorage.setItem("arslan_v104_clientes", JSON.stringify(clientes));
+      console.log(`✅ Clientes actualizados (${clientes.length})`);
+    } else console.warn("⚠️ No se pudieron descargar clientes:", errC?.message);
+
+    // === PRODUCTOS ===
+    const { data: productos, error: errP } = await supabase.from("productos").select("*");
+    if (!errP && Array.isArray(productos)) {
+      localStorage.setItem("arslan_v104_productos", JSON.stringify(productos));
+      console.log(`🍏 Productos actualizados (${productos.length})`);
+    } else console.warn("⚠️ No se pudieron descargar productos:", errP?.message);
+
+    // === FACTURAS ===
+    const { data: facturas, error: errF } = await supabase.from("facturas").select("*");
+    if (!errF && Array.isArray(facturas)) {
+      localStorage.setItem("arslan_v104_facturas", JSON.stringify(facturas));
+      console.log(`🧾 Facturas actualizadas (${facturas.length})`);
+    } else console.warn("⚠️ No se pudieron descargar facturas:", errF?.message);
+
+    console.log("✨ Sincronización inicial desde Supabase completada correctamente.");
+
+    // Si existe renderAll(), actualiza toda la interfaz visual
+    if (typeof renderAll === "function") {
+      renderAll();
+      console.log("🔄 Interfaz actualizada con datos remotos.");
+    } else {
+      console.log("ℹ️ renderAll aún no cargado, interfaz se actualizará luego.");
+    }
+
+  } catch (e) {
+    console.error("❌ Error durante carga inicial:", e.message);
+  }
+})();
 
