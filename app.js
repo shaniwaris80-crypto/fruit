@@ -946,89 +946,144 @@ function drawResumen(){ drawKPIs(); }
   aplicarTema(guardadoTema);
   if(guardadoDark) toggleDark();
    /* ===========================================================
-   🔁 SINCRONIZACIÓN BIDIRECCIONAL CON SUPABASE
-   - Descarga datos al abrir.
-   - Sube nuevos datos o cambios cuando hay conexión.
-   - Mantiene todo sincronizado entre dispositivos.
+   /* ===========================================================
+   🔁 SINCRONIZACIÓN BIDIRECCIONAL COMPLETA CON POCKETBASE
    =========================================================== */
-(async function syncBidireccional() {
-  console.log('☁️ Iniciando sincronización bidireccional...');
 
-  // ✅ Tablas que queremos sincronizar
+// --- Inicializa conexión global (si no existe ya) ---
+if (typeof pb === 'undefined') {
+  const pb = new PocketBase('https://step-powerful.pockethost.io');
+  console.log('✅ PocketBase inicializado: Client');
+  window.pb = pb;
+}
+
+(async function syncBidireccional() {
+  console.log('☁️ Iniciando sincronización bidireccional (PocketBase)...');
+
+  // === Tablas a sincronizar ===
   const TABLAS = {
-    clientes: { key: K_CLIENTES, mapOut: c => ({
-      id: c.id, nombre: c.nombre, direccion: c.dir, nif: c.nif, telefono: c.tel
-    }), mapIn: r => ({
-      id: r.id || uid(), nombre: r.nombre || '', dir: r.direccion || '',
-      nif: r.nif || '', tel: r.telefono || '', email: r.email || ''
-    }) },
-    facturas: { key: K_FACTURAS, mapOut: f => ({
-      numero: f.numero, fecha: f.fecha, cliente: f.cliente?.nombre,
-      total: f.totals?.total || 0, estado: f.estado
-    }), mapIn: r => r },
-    productos: { key: K_PRODUCTOS, mapOut: p => ({
-      name: p.name, mode: p.mode, boxKg: p.boxKg, price: p.price, origin: p.origin
-    }), mapIn: r => ({
-      name: r.name, mode: r.mode, boxKg: r.boxKg, price: r.price, origin: r.origin
-    }) }
+    clientes: {
+      key: K_CLIENTES,
+      mapOut: c => ({
+        id: c.id,
+        nombre: c.nombre || '',
+        direccion: c.dir || '',
+        nif: c.nif || '',
+        telefono: c.tel || '',
+        email: c.email || '',
+      }),
+      mapIn: r => ({
+        id: r.id || uid(),
+        nombre: r.nombre || '',
+        dir: r.direccion || '',
+        nif: r.nif || '',
+        tel: r.telefono || '',
+        email: r.email || '',
+      }),
+    },
+    productos: {
+      key: K_PRODUCTOS,
+      mapOut: p => ({
+        id: p.id,
+        name: p.name,
+        mode: p.mode,
+        boxKg: p.boxKg,
+        price: p.price,
+        origin: p.origin,
+      }),
+      mapIn: r => ({
+        id: r.id || uid(),
+        name: r.name,
+        mode: r.mode,
+        boxKg: r.boxKg,
+        price: r.price,
+        origin: r.origin,
+      }),
+    },
+    facturas: {
+      key: K_FACTURAS,
+      mapOut: f => ({
+        id: f.id,
+        numero: f.numero,
+        fecha: f.fecha,
+        cliente: f.cliente?.nombre || '',
+        total: f.totals?.total || 0,
+        estado: f.estado,
+        data: f, // guarda toda la factura como JSON
+      }),
+      mapIn: r => (r.data ? r.data : r),
+    },
   };
 
-  // 🔁 Función para sincronizar una tabla
+  // === Sincronización general ===
+  if (!navigator.onLine) {
+    console.log('📴 Sin conexión. Modo local activo.');
+    return;
+  }
+
   async function syncTable(nombre, cfg) {
-    console.log(`🔄 Sincronizando tabla: ${nombre}...`);
+    console.log(`🔄 Sincronizando ${nombre}...`);
     const localData = load(cfg.key, []);
 
     try {
-      // --- DESCARGA ---
-      const { data: cloudData, error: errDown } = await supabase.from(nombre).select('*');
-      if (errDown) throw new Error(errDown.message);
+      const cloudData = await pb.collection(nombre).getFullList({ sort: '-updated' });
 
-      // --- COMBINA ---
+      // --- Combinar (sin duplicar) ---
       const merged = [...localData];
       for (const r of cloudData) {
-        const existe = merged.find(x => (x.id && r.id) ? x.id === r.id : false);
-        if (!existe) merged.push(cfg.mapIn(r));
-      }
-
-      // --- GUARDA LOCAL ---
-      save(cfg.key, merged);
-
-      // --- SUBIDA (solo los que no estén en nube) ---
-      for (const item of localData) {
-        const existsInCloud = cloudData.some(r =>
-          (r.id && item.id && r.id === item.id) ||
-          (r.nombre && item.nombre && r.nombre === item.nombre)
-        );
-        if (!existsInCloud) {
-          const toUpload = cfg.mapOut(item);
-          const { error: errUp } = await supabase.from(nombre).insert([toUpload]);
-          if (errUp) console.warn(`⚠️ No se pudo subir ${nombre}:`, errUp.message);
+        const match = merged.find(x => x.id === r.id);
+        if (!match) merged.push(cfg.mapIn(r));
+        else {
+          // 🔁 Actualiza si el registro remoto es más reciente
+          if (r.updated > (match.updated || '')) {
+            const updated = cfg.mapIn(r);
+            const idx = merged.findIndex(x => x.id === r.id);
+            merged[idx] = updated;
+          }
         }
       }
 
-      console.log(`✅ ${nombre} sincronizada (${merged.length} registros locales)`);
-    } catch (e) {
-      console.warn(`⚠️ Error al sincronizar ${nombre}:`, e.message);
+      // --- Subir los nuevos o modificados locales ---
+      for (const item of localData) {
+        const remote = cloudData.find(r => r.id === item.id);
+        if (!remote) {
+          await pb.collection(nombre).create(cfg.mapOut(item));
+          console.log(`⬆️ Subido nuevo ${nombre}:`, item.id);
+        } else {
+          // Detecta cambios (simple comparación JSON)
+          const localJson = JSON.stringify(cfg.mapOut(item));
+          const remoteJson = JSON.stringify(remote);
+          if (localJson !== remoteJson) {
+            await pb.collection(nombre).update(remote.id, cfg.mapOut(item));
+            console.log(`🔁 Actualizado ${nombre}:`, item.id);
+          }
+        }
+      }
+
+      // --- Guardar localmente ---
+      save(cfg.key, merged);
+      console.log(`✅ ${nombre} sincronizada (${merged.length} registros).`);
+    } catch (err) {
+      console.warn(`⚠️ Error al sincronizar ${nombre}:`, err.message);
     }
   }
 
-  // 🌐 Comprueba conexión antes de sincronizar
-  if (navigator.onLine) {
-    for (const [nombre, cfg] of Object.entries(TABLAS)) {
-      await syncTable(nombre, cfg);
-    }
-    console.log('✨ Sincronización bidireccional completada');
-    renderAll();
-  } else {
-    console.log('📴 Sin conexión. Se usará solo la base local.');
+  for (const [nombre, cfg] of Object.entries(TABLAS)) {
+    await syncTable(nombre, cfg);
   }
 
-  // 🔔 Reintenta sincronizar al reconectarse
-  window.addEventListener('online', () => {
-    console.log('🔌 Conexión restaurada. Reintentando sincronizar...');
-    syncBidireccional();
-  });
+  console.log('✨ Sincronización bidireccional completada.');
+  renderAll();
+
+  // === Realtime: escuchar cambios desde PocketBase ===
+  for (const nombre of Object.keys(TABLAS)) {
+    pb.collection(nombre).subscribe('*', e => {
+      console.log(`🛰️ Cambio remoto en ${nombre}:`, e.action);
+      syncBidireccional();
+    });
+  }
 })();
+
 /* ===========================================================
    📈 SINCRONIZACIÓN EXTENDIDA — priceHist, KPIs, Pendientes
    =========================================================== */
