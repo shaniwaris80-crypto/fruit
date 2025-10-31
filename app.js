@@ -287,7 +287,220 @@ function renderClientesLista(){
 function fillClientFields(c){
   $('#cliNombre').value=c.nombre||''; $('#cliNif').value=c.nif||''; $('#cliDir').value=c.dir||''; $('#cliTel').value=c.tel||''; $('#cliEmail').value=c.email||'';
 }
+/* ===========================================================
+   ARSLAN PRO V10.4 — FIX COMPLETO SYNC + RENDER CLIENTES
+   =========================================================== */
 
+/* ---------- UTILIDADES ---------- */
+const $ = s => document.querySelector(s);
+const $$ = s => Array.from(document.querySelectorAll(s));
+const money = n => (isNaN(n) ? 0 : n).toFixed(2).replace(".", ",") + " €";
+const parseNum = v => {
+  const n = parseFloat(String(v).replace(",", "."));
+  return isNaN(n) ? 0 : n;
+};
+const escapeHTML = s => String(s || "");
+
+/* ===========================================================
+   🩹 FIX: renderClientesSelect — evita error si no existe
+   =========================================================== */
+if (typeof renderClientesSelect !== "function") {
+  function renderClientesSelect() {
+    try {
+      const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
+      const select = document.querySelector("#factura-cliente");
+      if (!select) return;
+
+      select.innerHTML = clientes
+        .map(c => `<option value="${c.id}">${c.nombre}</option>`)
+        .join("");
+
+      console.log(`🧾 renderClientesSelect actualizado (${clientes.length} clientes)`);
+    } catch (err) {
+      console.warn("⚠️ No se pudo renderizar el selector de clientes:", err);
+    }
+  }
+}
+
+/* ===========================================================
+   🧩 CREACIÓN / GUARDADO DE CLIENTES CON UUID VÁLIDO
+   =========================================================== */
+function saveCliente() {
+  try {
+    const nombre = $("#cliente-nombre").value.trim();
+    const direccion = $("#cliente-direccion").value.trim();
+    const nif = $("#cliente-nif").value.trim();
+    const telefono = $("#cliente-telefono").value.trim();
+    const email = $("#cliente-email").value.trim();
+
+    if (!nombre) {
+      alert("⚠️ Debes introducir un nombre para el cliente.");
+      return;
+    }
+
+    // Detectar cliente existente (modo edición)
+    let idCliente = $("#cliente-id").value || null;
+
+    // Si el ID actual no existe o no es un UUID válido, se genera uno nuevo
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!idCliente || !uuidRegex.test(idCliente)) {
+      idCliente = crypto.randomUUID();
+    }
+
+    const cliente = {
+      id: idCliente,
+      nombre,
+      direccion,
+      nif,
+      telefono,
+      email,
+      ts: new Date().toISOString(),
+    };
+
+    // Actualizar o añadir localmente
+    let clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
+    const i = clientes.findIndex(c => c.id === cliente.id);
+    if (i >= 0) clientes[i] = cliente;
+    else clientes.push(cliente);
+
+    localStorage.setItem("clientes", JSON.stringify(clientes));
+
+    console.log("✅ Cliente guardado localmente:", cliente);
+
+    // 🔁 Intentar sincronización inmediata con Supabase
+    if (window.syncTable) {
+      syncTable("clientes");
+    }
+
+    alert("✅ Cliente guardado correctamente");
+
+    // 🧾 Refrescar el selector de clientes y la vista general
+    renderClientesSelect();
+    renderAll();
+  } catch (err) {
+    console.error("❌ Error guardando cliente:", err);
+    alert("Error al guardar el cliente. Revisa la consola.");
+  }
+}
+
+/* ===========================================================
+   🧾 FUNCIÓN GLOBAL: renderAll()
+   - Refresca toda la interfaz principal
+   =========================================================== */
+function renderAll() {
+  try {
+    console.log("🔄 Ejecutando renderAll universal...");
+
+    /* ---------- CLIENTES ---------- */
+    const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
+    const contClientes = document.querySelector("#clientes-lista");
+    if (contClientes) {
+      contClientes.innerHTML = clientes.length
+        ? clientes
+            .map(
+              c => `
+              <div class="cliente-item">
+                <strong>${c.nombre}</strong><br>
+                <small>${c.nif || ""}</small><br>
+                <small>${c.direccion || ""}</small><br>
+                <small>${c.telefono || ""}</small><br>
+                <small>${c.email || ""}</small>
+              </div>`
+            )
+            .join("")
+        : "<p class='muted'>Sin clientes registrados</p>";
+    }
+
+    /* ---------- SELECT CLIENTES ---------- */
+    if (typeof renderClientesSelect === "function") renderClientesSelect();
+
+    /* ---------- PRODUCTOS ---------- */
+    const productos = JSON.parse(localStorage.getItem("productos") || "[]");
+    const contProductos = document.querySelector("#productos-lista");
+    if (contProductos) {
+      contProductos.innerHTML = productos.length
+        ? productos
+            .map(
+              p => `
+              <div class="producto-item">
+                <strong>${p.nombre}</strong><br>
+                <small>${p.mode || "—"} | ${p.price || 0} €/u</small>
+              </div>`
+            )
+            .join("")
+        : "<p class='muted'>Sin productos registrados</p>";
+    }
+
+    /* ---------- FACTURAS ---------- */
+    const facturas = JSON.parse(localStorage.getItem("facturas") || "[]");
+    const contFacturas = document.querySelector("#facturas-lista");
+    if (contFacturas) {
+      contFacturas.innerHTML = facturas.length
+        ? facturas
+            .map(
+              f => `
+              <div class="factura-item">
+                <strong>${f.numero}</strong><br>
+                <small>Cliente: ${f.clienteNombre || "—"}</small><br>
+                <small>Total: ${(f.totalConIVA || f.total || 0).toFixed(2)} €</small><br>
+                <small>Fecha: ${new Date(f.ts).toLocaleDateString()}</small>
+              </div>`
+            )
+            .join("")
+        : "<p class='muted'>Sin facturas generadas</p>";
+    }
+
+    /* ---------- PRICE HISTORIAL ---------- */
+    const priceHist = JSON.parse(localStorage.getItem("priceHist") || "{}");
+    const contHist = document.querySelector("#priceHist-lista");
+    if (contHist) {
+      const entries = Object.entries(priceHist);
+      contHist.innerHTML = entries.length
+        ? entries
+            .map(([prod, hist]) => {
+              const last = hist[hist.length - 1];
+              return `
+                <div class="historial-item">
+                  <strong>${prod}</strong><br>
+                  <small>Último precio: ${last?.price || 0} €</small>
+                </div>`;
+            })
+            .join("")
+        : "<p class='muted'>Sin historial de precios</p>";
+    }
+
+    console.log("✅ renderAll completado correctamente.");
+  } catch (err) {
+    console.error("❌ Error en renderAll:", err);
+  }
+}
+
+/* ===========================================================
+   🚀 BOOT: CARGA INICIAL
+   =========================================================== */
+async function boot() {
+  console.log("🚀 Iniciando ARSLAN PRO…");
+
+  // Cargar datos locales primero
+  renderAll();
+
+  // Intentar sincronización inicial si Supabase está listo
+  if (window.syncTable) {
+    console.log("☁️ Iniciando sincronización bidireccional...");
+    try {
+      await syncTable("clientes");
+      await syncTable("productos");
+      await syncTable("facturas");
+      console.log("✅ Sincronización inicial completada correctamente.");
+    } catch (e) {
+      console.warn("⚠️ Error durante sincronización inicial:", e);
+    }
+  }
+
+  console.log("🎉 Sistema ARSLAN PRO listo.");
+}
+
+document.addEventListener("DOMContentLoaded", boot);
 /* ---------- PRODUCTOS UI ---------- */
 function saveProductos(){ save(K_PRODUCTOS, productos); }
 function populateProductDatalist(){
