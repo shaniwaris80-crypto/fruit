@@ -211,26 +211,7 @@ function renderClientesLista(){
         const email=prompt('Email',c.email||'')??c.email;
         clientes[i]={...c,nombre,nif,dir,tel,email}; saveClientes(); renderClientesSelect(); renderClientesLista();
       }else{
-        if(confirm('¿Eliminar cliente?')){ clientes.splice(i,1); saveClientes(); renderClientesSelect(); renderClientesLista(); // 🚀 También guardar en Supabase
-(async () => {
-  try {
-    const { error } = await supabase
-      .from('clientes')
-      .insert([
-        {
-          nombre: nombre,
-          direccion: dir,
-          nif: nif,
-          telefono: tel
-        }
-      ]);
-    if (error) console.warn('⚠️ Error subiendo a Supabase:', error);
-    else console.log('Cliente guardado en Supabase correctamente ✅');
-  } catch (e) {
-    console.error('❌ Error de conexión Supabase:', e);
-  }
-})();
-}
+        if(confirm('¿Eliminar cliente?')){ clientes.splice(i,1); saveClientes(); renderClientesSelect(); renderClientesLista(); }
       }
     });
   });
@@ -238,353 +219,252 @@ function renderClientesLista(){
 function fillClientFields(c){
   $('#cliNombre').value=c.nombre||''; $('#cliNif').value=c.nif||''; $('#cliDir').value=c.dir||''; $('#cliTel').value=c.tel||''; $('#cliEmail').value=c.email||'';
 }
+$('#selCliente')?.addEventListener('change', e=>{
+  const id=e.target.value;
+  const c = clientes.find(x=>x.id===id);
+  if(c) fillClientFields(c);
+});
+$('#btnAddCliente')?.addEventListener('click', ()=>{
+  const nombre=prompt('Nombre cliente'); if(!nombre) return;
+  const nif=prompt('NIF'); const dir=prompt('Dirección'); const tel=prompt('Teléfono'); const email=prompt('Email');
+  const c = {id:uid(), nombre, nif, dir, tel, email};
+  clientes.push(c); saveClientes(); renderClientesSelect(); renderClientesLista();
+});
+$('#buscarCliente')?.addEventListener('input', renderClientesLista);
+$('#btnExportClientes')?.addEventListener('click', ()=>downloadJSON(clientes,'clientes.json'));
+$('#btnImportClientes')?.addEventListener('click', ()=>{
+  uploadJSON(arr=>{
+    if(Array.isArray(arr)){
+      clientes=uniqueByName(arr);
+      ensureClienteIds();
+      saveClientes(); renderClientesSelect(); renderClientesLista();
+    }
+  });
+});
 
 /* ---------- PRODUCTOS UI ---------- */
 function saveProductos(){ save(K_PRODUCTOS, productos); }
 function populateProductDatalist(){
   const dl=$('#productNamesList'); if(!dl) return;
-  dl.innerHTML='';
-  productos.forEach(p=>{ const o=document.createElement('option'); o.value=p.name; dl.appendChild(o); });
+  dl.innerHTML=''; productos.forEach(p=>{ const o=document.createElement('option'); o.value=p.name; dl.appendChild(o); });
 }
 function renderProductos(){
-  const cont = $('#listaProductos'); if(!cont) return;
-  const q = ($('#buscarProducto')?.value||'').toLowerCase();
-  const view = q ? productos.filter(p=>(p.name||'').toLowerCase().includes(q)) : productos;
+  const cont=$('#listaProductos'); if(!cont) return;
   cont.innerHTML='';
-  if(view.length===0){ cont.innerHTML='<div class="item">Sin resultados.</div>'; return; }
-  view.forEach((p,idx)=>{
-    const row=document.createElement('div'); row.className='product-row';
+  const q=($('#buscarProducto')?.value||'').toLowerCase();
+  const arr=[...productos].sort((a,b)=>(a.name||'').localeCompare(b.name||''));
+  const view=q?arr.filter(p=>(p.name||'').toLowerCase().includes(q)):arr;
+  if(view.length===0){ cont.innerHTML='<div class="item">Sin productos.</div>'; return; }
+  view.forEach((p,i)=>{
+    const row=document.createElement('div'); row.className='item';
     row.innerHTML=`
-      <input value="${escapeHTML(p.name||'')}" data-f="name" />
-      <select data-f="mode">
-        <option value="">—</option><option value="kg"${p.mode==='kg'?' selected':''}>kg</option><option value="unidad"${p.mode==='unidad'?' selected':''}>unidad</option><option value="caja"${p.mode==='caja'?' selected':''}>caja</option>
-      </select>
-      <input type="number" step="0.01" data-f="boxkg" placeholder="Kg/caja" value="${p.boxkg??''}" />
-      <input type="number" step="0.01" data-f="price" placeholder="€ base" value="${p.price??''}" />
-      <input data-f="origin" placeholder="Origen" value="${escapeHTML(p.origin||'')}" />
-      <button data-e="save" data-i="${idx}">💾 Guardar</button>
-      <button class="ghost" data-e="del" data-i="${idx}">✖</button>
-    `;
+      <div><strong>${escapeHTML(p.name)}</strong></div>
+      <div class="row">
+        <button class="ghost" data-e="edit" data-i="${i}">Editar</button>
+        <button class="ghost" data-e="del" data-i="${i}">Borrar</button>
+      </div>`;
     cont.appendChild(row);
   });
   cont.querySelectorAll('button').forEach(b=>{
     const i=+b.dataset.i;
     b.addEventListener('click', ()=>{
-      if(b.dataset.e==='del'){
-        if(confirm('¿Eliminar producto?')){ productos.splice(i,1); saveProductos(); populateProductDatalist(); renderProductos(); }
+      if(b.dataset.e==='edit'){
+        const name=prompt('Nombre producto',productos[i].name||'');
+        if(name){ productos[i].name=name; saveProductos(); populateProductDatalist(); renderProductos(); }
       }else{
-        const row=b.closest('.product-row');
-        const get=f=>row.querySelector(`[data-f="${f}"]`).value.trim();
-        const name=get('name'); const mode=(get('mode')||null);
-        const boxkgStr=get('boxkg'); const boxkg=boxkgStr===''?null:parseNum(Str);
-        const priceStr=get('price'); const price=priceStr===''?null:parseNum(priceStr);
-        const origin=get('origin')||null;
-        productos[i]={name,mode,boxkg,price,origin}; saveProductos(); populateProductDatalist(); renderProductos();
+        if(confirm('¿Eliminar producto?')){ productos.splice(i,1); saveProductos(); populateProductDatalist(); renderProductos(); }
       }
     });
   });
 }
+$('#btnAddProducto')?.addEventListener('click', ()=>{
+  const name=prompt('Nombre producto'); if(!name) return;
+  productos.push({name}); saveProductos(); populateProductDatalist(); renderProductos();
+});
 $('#buscarProducto')?.addEventListener('input', renderProductos);
-
-/* ---------- FACTURA: LÍNEAS ---------- */
-function findProducto(name){ return productos.find(p=>(p.name||'').toLowerCase()===String(name).toLowerCase()); }
-function addLinea(){
-  const tb = $('#lineasBody'); if(!tb) return;
-  const tr=document.createElement('tr');
-  tr.innerHTML=`
-    <td><input class="name" list="productNamesList" placeholder="Producto (↓ para ver lista)" /></td>
-    <td>
-      <select class="mode">
-        <option value="">—</option><option value="kg">kg</option><option value="unidad">unidad</option><option value="caja">caja</option>
-      </select>
-    </td>
-    <td><input class="qty" type="number" step="1"  placeholder="Cant." /></td>
-    <td><input class="gross" type="number" step="0.01" placeholder="Bruto" /></td>
-    <td><input class="tare"  type="number" step="0.01" placeholder="Tara" /></td>
-    <td><input class="net"   type="number" step="0.01" placeholder="Neto" disabled /></td>
-    <td><input class="price" type="number" step="0.01" placeholder="Precio" /></td>
-    <td><input class="origin" placeholder="Origen (opcional)" /></td>
-    <td><input class="amount" placeholder="Importe" disabled /></td>
-    <td><button class="del">✕</button></td>
-  `;
-  tb.appendChild(tr);
-
-  const name=tr.querySelector('.name');
-  const mode=tr.querySelector('.mode');
-  const qty=tr.querySelector('.qty');
-  const gross=tr.querySelector('.gross');
-  const tare=tr.querySelector('.tare');
-  const net=tr.querySelector('.net');
-  const price=tr.querySelector('.price');
-  const origin=tr.querySelector('.origin');
-  const amount=tr.querySelector('.amount');
-
-  const showHist=()=>{ const n=name.value.trim(); if(n) renderPriceHistory(n); };
-  name.addEventListener('focus', showHist);
-  price.addEventListener('focus', showHist);
-
-  name.addEventListener('change', ()=>{
-    const p=findProducto(name.value.trim());
-    if(p){
-      if(p.mode) mode.value=p.mode;
-      if(p.price!=null) price.value=p.price;
-      if(p.origin) origin.value=p.origin;
-      const lp=lastPrice(p.name); if(lp!=null && !p.price) price.value=lp;
-      renderPriceHistory(p.name);
+$('#btnExportProductos')?.addEventListener('click', ()=>downloadJSON(productos,'productos.json'));
+$('#btnImportProductos')?.addEventListener('click', ()=>{
+  uploadJSON(arr=>{
+    if(Array.isArray(arr)){
+      productos=arr;
+      saveProductos(); populateProductDatalist(); renderProductos();
     }
-    recalcLine();
   });
-
-  [mode, qty, gross, tare, price].forEach(i=>i.addEventListener('input', recalcLine));
-  tr.querySelector('.del').addEventListener('click', ()=>{ tr.remove(); recalc(); });
-
-  function recalcLine(){
-    const m=(mode.value||'').toLowerCase();
-    const q=Math.max(0, Math.floor(parseNum(qty.value||0)));
-    const g=Math.max(0, parseNum(gross.value||0));
-    const t=Math.max(0, parseNum(tare.value||0));
-    const pr=Math.max(0, parseNum(price.value||0));
-    let n=0;
-
-    if(g>0 || t>0){ n=Math.max(0,g-t); }
-    else if(m==='caja'){ const p=findProducto(name.value); const kg=p?.boxkg||0; n=q*kg; }
-    else if(m==='kg'){ n=q; }
-    else if(m==='unidad'){ n=q; }
-
-    net.value = n ? n.toFixed(2) : '';
-    const amt = (m==='unidad') ? q*pr : n*pr;
-    amount.value = amt>0 ? amt.toFixed(2) : '';
-    recalc();
-  }
-}
-function captureLineas(){
-  return $$('#lineasBody tr').map(r=>{
-    const name=r.querySelector('.name').value.trim();
-    const mode=r.querySelector('.mode').value.trim().toLowerCase();
-    const qty=Math.max(0, Math.floor(parseNum(r.querySelector('.qty').value||0)));
-    const gross=Math.max(0, parseNum(r.querySelector('.gross').value||0));
-    const tare=Math.max(0, parseNum(r.querySelector('.tare').value||0));
-    const net=Math.max(0, parseNum(r.querySelector('.net').value||0));
-    const price=Math.max(0, parseNum(r.querySelector('.price').value||0));
-    const origin=r.querySelector('.origin').value.trim();
-    return {name,mode,qty,gross,tare,net,price,origin};
-  }).filter(l=> l.name && (l.qty>0 || l.net>0 || l.gross>0) );
-}
-function lineImporte(l){ return (l.mode==='unidad') ? l.qty*l.price : l.net*l.price; }
-
-/* ---------- PAGOS PARCIALES EN UI ---------- */
-let pagosTemp = []; // {date, amount}
-function renderPagosTemp(){
-  const list=$('#listaPagos'); if(!list) return;
-  list.innerHTML='';
-  if(pagosTemp.length===0){ list.innerHTML='<div class="item">Sin pagos parciales.</div>'; return; }
-  pagosTemp.forEach((p,i)=>{
-    const div=document.createElement('div'); div.className='item';
-    div.innerHTML=`<div>${fmtDateDMY(new Date(p.date))} · <strong>${money(p.amount)}</strong></div><button class="ghost" data-i="${i}">✖</button>`;
-    list.appendChild(div);
-  });
-  list.querySelectorAll('button').forEach(b=>{
-    b.addEventListener('click', ()=>{ pagosTemp.splice(+b.dataset.i,1); renderPagosTemp(); recalc(); });
-  });
-}
-$('#btnAddPago')?.addEventListener('click', ()=>{
-  const amt=parseNum($('#inpPagoParcial').value||0); if(!(amt>0)) return;
-  pagosTemp.unshift({date: todayISO(), amount: amt});
-  $('#inpPagoParcial').value='';
-  renderPagosTemp(); recalc();
 });
 
-/* ---------- RECÁLCULO + PDF FILL + ESTADO ---------- */
-function recalc(){
-  const ls=captureLineas();
-  let subtotal=0; ls.forEach(l=> subtotal+=lineImporte(l));
-  const transporte = $('#chkTransporte')?.checked ? subtotal*0.10 : 0;
-  const baseMasTrans = subtotal + transporte;
-  const iva = baseMasTrans * 0.04; // informativo
-  const total = baseMasTrans;
-
-  const manual = parseNum($('#pagado')?.value||0);
-  const parcial = pagosTemp.reduce((a,b)=>a+(b.amount||0),0);
-  const pagadoTotal = manual + parcial;
-  const pendiente = Math.max(0, total - pagadoTotal);
-
-  $('#subtotal').textContent = money(subtotal);
-  $('#transp').textContent = money(transporte);
-  $('#iva').textContent = money(iva);
-  $('#total').textContent = money(total);
-  $('#pendiente').textContent = money(pendiente);
-
-  if(total<=0){ $('#estado').value='pendiente'; }
-  else if(pagadoTotal<=0){ $('#estado').value='pendiente'; }
-  else if(pagadoTotal<total){ $('#estado').value='parcial'; }
-  else { $('#estado').value='pagado'; }
-
-  const foot=$('#pdf-foot-note');
-  if(foot){
-    foot.textContent = $('#chkIvaIncluido')?.checked ? 'IVA incluido en los precios.' : 'IVA (4%) mostrado como informativo. Transporte 10% opcional.';
-  }
-
-  fillPrint(ls,{subtotal,transporte,iva,total},null,null);
-  drawResumen();
-}
-;['chkTransporte','chkIvaIncluido','estado','pagado'].forEach(id=>$('#'+id)?.addEventListener('input', recalc));
-
-function fillPrint(lines, totals, _temp=null, f=null){
-  $('#p-num').textContent = f?.numero || '(Sin guardar)';
-  $('#p-fecha').textContent = (f?new Date(f.fecha):new Date()).toLocaleString();
-
-  $('#p-prov').innerHTML = `
-    <div><strong>${escapeHTML(f?.proveedor?.nombre || $('#provNombre').value || '')}</strong></div>
-    <div>${escapeHTML(f?.proveedor?.nif || $('#provNif').value || '')}</div>
-    <div>${escapeHTML(f?.proveedor?.dir || $('#provDir').value || '')}</div>
-    <div>${escapeHTML(f?.proveedor?.tel || $('#provTel').value || '')} · ${escapeHTML(f?.proveedor?.email || $('#provEmail').value || '')}</div>
-  `;
-  $('#p-cli').innerHTML = `
-    <div><strong>${escapeHTML(f?.cliente?.nombre || $('#cliNombre').value || '')}</strong></div>
-    <div>${escapeHTML(f?.cliente?.nif || $('#cliNif').value || '')}</div>
-    <div>${escapeHTML(f?.cliente?.dir || $('#cliDir').value || '')}</div>
-    <div>${escapeHTML(f?.cliente?.tel || $('#cliTel').value || '')} · ${escapeHTML(f?.cliente?.email || $('#cliEmail').value || '')}</div>
-  `;
-
-  const tbody = $('#p-tabla tbody'); tbody.innerHTML='';
-  (lines||[]).forEach(l=>{
-    const tr=document.createElement('tr');
-    tr.innerHTML = `
-      <td>${escapeHTML(l.name)}</td>
-      <td>${escapeHTML(l.mode||'')}</td>
-      <td>${l.qty||''}</td>
-      <td>${l.gross?l.gross.toFixed(2):''}</td>
-      <td>${l.tare?l.tare.toFixed(2):''}</td>
-      <td>${l.net?l.net.toFixed(2):''}</td>
-      <td>${money(l.price)}</td>
-      <td>${escapeHTML(l.origin||'')}</td>
-      <td>${money((l.mode==='unidad') ? l.qty*l.price : l.net*l.price)}</td>
-    `;
-    tbody.appendChild(tr);
-  });
-
-  $('#p-sub').textContent = money(totals?.subtotal||0);
-  $('#p-tra').textContent = money(totals?.transporte||0);
-  $('#p-iva').textContent = money(totals?.iva||0);
-  $('#p-tot').textContent = money(totals?.total||0);
-  $('#p-estado').textContent = f?.estado || $('#estado')?.value || 'Impagada';
-  $('#p-metodo').textContent = f?.metodo || $('#metodoPago')?.value || 'Efectivo';
-  $('#p-obs').textContent = f?.obs || ($('#observaciones')?.value||'—');
-
-  // QR con datos básicos (igual que antes)
-  try{
-    const canvas = $('#p-qr');
-    const numero = f?.numero || '(Sin guardar)';
-    const cliente = f?.cliente?.nombre || $('#cliNombre').value || '';
-    const payload = `ARSLAN-Factura|${numero}|${cliente}|${money(totals?.total||0)}|${$('#p-estado').textContent}`;
-    window.QRCode.toCanvas(canvas, payload, {width:92, margin:0});
-  }catch(e){}
-}
-
-/* ---------- GUARDAR / NUEVA / PDF ---------- */
-function genNumFactura(){ const d=new Date(), pad=n=>String(n).padStart(2,'0'); return `FA-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`; }
+/* ---------- FACTURAS ---------- */
 function saveFacturas(){ save(K_FACTURAS, facturas); }
 
+/* ---------- LINEAS FACTURA ---------- */
+function addLinea(obj={}){
+  const tb=$('#lineasBody'); if(!tb) return;
+  const tr=document.createElement('tr');
+  tr.innerHTML=`
+    <td><input list="productNamesList" class="name" placeholder="Producto" value="${obj.name||''}" /></td>
+    <td>
+      <select class="mode">
+        <option value="kg" ${obj.mode==='kg'?'selected':''}>kg</option>
+        <option value="unidad" ${obj.mode==='unidad'?'selected':''}>ud</option>
+      </select>
+    </td>
+    <td><input type="number" class="qty" step="0.01" value="${obj.qty||''}" /></td>
+    <td><input type="number" class="gross" step="0.01" value="${obj.gross||''}" /></td>
+    <td><input type="number" class="tara" step="0.01" value="${obj.tara||''}" /></td>
+    <td class="net"></td>
+    <td><input type="number" step="0.01" class="price" value="${obj.price||''}" /></td>
+    <td><input class="origin" placeholder="Origen" value="${obj.origin||''}" /></td>
+    <td class="import"></td>
+    <td><button class="ghost btnDel">✖</button></td>
+  `;
+  tb.appendChild(tr);
+  updateLinea(tr);
+
+  tr.querySelectorAll('input,select').forEach(inp=>{
+    inp.addEventListener('input', ()=>updateLinea(tr));
+  });
+  tr.querySelector('.btnDel').addEventListener('click',()=>{ tr.remove(); recalcTotals(); });
+}
+function updateLinea(tr){
+  const mode=tr.querySelector('.mode')?.value;
+  const qty = parseNum(tr.querySelector('.qty')?.value);
+  const gross=parseNum(tr.querySelector('.gross')?.value);
+  const tara = parseNum(tr.querySelector('.tara')?.value);
+  const price=parseNum(tr.querySelector('.price')?.value);
+  const net =(mode==='unidad')?qty:(gross-tara);
+  tr.querySelector('.net').textContent=net.toFixed(2);
+  const importVal = net*price;
+  tr.querySelector('.import').textContent = importVal.toFixed(2);
+  recalcTotals();
+}
+$('#btnAddLinea')?.addEventListener('click',()=>addLinea());
+$('#btnVaciarLineas')?.addEventListener('click',()=>{ $('#lineasBody').innerHTML=''; recalcTotals(); });
+
+/* ---------- TOTALES FACTURA ---------- */
+function recalcTotals(){
+  let subtotal=0;
+  $$('#lineasBody tr').forEach(tr=>{
+    const imp = parseNum(tr.querySelector('.import')?.textContent);
+    subtotal += imp;
+  });
+  $('#subtotal').textContent = money(subtotal);
+
+  const transp = $('#chkTransporte')?.checked ? subtotal*0.10 : 0;
+  $('#transp').textContent = money(transp);
+
+  const conIvaIncl = $('#chkIvaIncluido')?.checked;
+  const iva = conIvaIncl ? (subtotal+transp)*0.04 : 0;
+  $('#iva').textContent = money(iva);
+
+  const total = subtotal + transp + iva;
+  $('#total').textContent = money(total);
+
+  const pagado=parseNum($('#pagado')?.value);
+  const pendiente = Math.max(0, total-pagado);
+  $('#pendiente').textContent = money(pendiente);
+}
+$('#chkTransporte')?.addEventListener('change', recalcTotals);
+$('#chkIvaIncluido')?.addEventListener('change', recalcTotals);
+$('#pagado')?.addEventListener('input', recalcTotals);
+$('#btnSumarIVA')?.addEventListener('click',()=>{
+  const total=unMoney($('#total')?.textContent);
+  const iva=total*0.04;
+  $('#iva').textContent=money(iva);
+  $('#total').textContent=money(total+iva);
+  recalcTotals();
+});
+
+/* ---------- PAGOS PARCIALES ---------- */
+$('#btnAddPago')?.addEventListener('click', ()=>{
+  const val=parseNum($('#inpPagoParcial')?.value);
+  if(!(val>0)) return;
+  const div=document.createElement('div');
+  div.className='row small';
+  div.innerHTML=`<span>${money(val)}</span> <button class="ghost">✖</button>`;
+  $('#listaPagos')?.appendChild(div);
+  div.querySelector('button').addEventListener('click',()=>{ div.remove(); recalcTotals(); });
+  $('#inpPagoParcial').value='';
+});
+
+/* ---------- GUARDAR FACTURA ---------- */
 $('#btnGuardar')?.addEventListener('click', ()=>{
-  const ls=captureLineas(); if(ls.length===0){ alert('Añade al menos una línea.'); return; }
-  const numero=genNumFactura(); const now=todayISO();
-  ls.forEach(l=> pushPriceHistory(l.name, l.price));
-
-  const subtotal=unMoney($('#subtotal').textContent);
-  const transporte=unMoney($('#transp').textContent);
-  const iva=unMoney($('#iva').textContent);
-  const total=unMoney($('#total').textContent);
-
-  const manual = parseNum($('#pagado').value||0);
-  const pagos = [...pagosTemp];
-  const pagadoParcial = pagos.reduce((a,b)=>a+(b.amount||0),0);
-  const pagadoTotal = manual + pagadoParcial;
-  const pendiente=Math.max(0,total-pagadoTotal);
-
-  const estado = (pagadoTotal<=0) ? 'pendiente' : (pagadoTotal<total ? 'parcial' : 'pagado');
+  const prov={
+    nombre:$('#provNombre').value.trim(),
+    nif:$('#provNif').value.trim(),
+    dir:$('#provDir').value.trim(),
+    tel:$('#provTel').value.trim(),
+    email:$('#provEmail').value.trim(),
+  };
+  const cli={
+    nombre:$('#cliNombre').value.trim(),
+    nif:$('#cliNif').value.trim(),
+    dir:$('#cliDir').value.trim(),
+    tel:$('#cliTel').value.trim(),
+    email:$('#cliEmail').value.trim(),
+  };
+  const estado=$('#estado')?.value;
+  const metodo=$('#metodoPago')?.value;
+  const pagado=parseNum($('#pagado')?.value);
+  const subtotal=unMoney($('#subtotal')?.textContent);
+  const transp =unMoney($('#transp')?.textContent);
+  const iva=unMoney($('#iva')?.textContent);
+  const total=unMoney($('#total')?.textContent);
+  const lineas=[];
+  $$('#lineasBody tr').forEach(tr=>{
+    const name=tr.querySelector('.name')?.value.trim();
+    const mode=tr.querySelector('.mode')?.value;
+    const qty =parseNum(tr.querySelector('.qty')?.value);
+    const gross=parseNum(tr.querySelector('.gross')?.value);
+    const tara =parseNum(tr.querySelector('.tara')?.value);
+    const net  =parseNum(tr.querySelector('.net')?.textContent);
+    const price=parseNum(tr.querySelector('.price')?.value);
+    const origin=tr.querySelector('.origin')?.value.trim();
+    lineas.push({name,mode,qty,gross,tara,net,price,origin});
+    if(price>0) pushPriceHistory(name,price);
+  });
+  const pagos=[];
+  $$('#listaPagos .row').forEach(div=>{
+    const amt = parseNum(div.querySelector('span')?.textContent);
+    pagos.push({date:todayISO(),amount:amt});
+  });
 
   const f={
-    numero, fecha:now,
-    proveedor:{nombre:$('#provNombre').value,nif:$('#provNif').value,dir:$('#provDir').value,tel:$('#provTel').value,email:$('#provEmail').value},
-    cliente:{nombre:$('#cliNombre').value,nif:$('#cliNif').value,dir:$('#cliDir').value,tel:$('#cliTel').value,email:$('#cliEmail').value},
-    lineas:ls, transporte:$('#chkTransporte').checked, ivaIncluido:$('#chkIvaIncluido').checked,
-    estado, metodo:$('#metodoPago').value, obs:$('#observaciones').value,
-    totals:{subtotal,transporte,iva,total,pagado:pagadoTotal,pendiente},
-    pagos
+    id:uid(),
+    fecha:todayISO(),
+    numero: `FA-${new Date().toISOString().replace(/[-:.TZ]/g,'').slice(0,12)}`,
+    proveedor:prov,
+    cliente:cli,
+    estado,
+    metodo,
+    lineas,
+    totals:{subtotal,transp,iva,total,pagado:0,pendiente:total},
+    pagos,
+    observ:$('#observaciones')?.value.trim()
   };
-  facturas.unshift(f); saveFacturas();
-  pagosTemp = []; renderPagosTemp();
-  alert(`Factura ${numero} guardada.`);
+  pagos.forEach(p=>{ f.totals.pagado+=p.amount; });
+  f.totals.pendiente = Math.max(0, total-f.totals.pagado);
+  if(f.totals.pendiente<=0) f.estado='pagado';
+  else if(f.totals.pagado>0) f.estado='parcial';
+  else f.estado='pendiente';
+
+  facturas.push(f); saveFacturas();
+  alert('Factura guardada ✔');
+
+  // Reset UI
+  $('#lineasBody').innerHTML='';
+  $('#subtotal').textContent='0,00 €'; $('#transp').textContent='0,00 €'; $('#iva').textContent='0,00 €'; $('#total').textContent='0,00 €';
+  $('#listaPagos').innerHTML=''; $('#pagado').value=''; $('#pendiente').textContent='0,00 €'; $('#observaciones').value='';
   renderFacturas(); renderPendientes(); drawKPIs(); drawCharts(); drawTop(); renderVentasCliente(); drawResumen();
-  fillPrint(ls,{subtotal,transporte,iva,total},null,f);
 });
-
-$('#btnNueva')?.addEventListener('click', ()=>{
-  const tb=$('#lineasBody'); tb.innerHTML=''; for(let i=0;i<5;i++) addLinea();
-  $('#chkTransporte').checked=false; $('#chkIvaIncluido').checked=true; $('#estado').value='pendiente';
-  $('#pagado').value=''; $('#metodoPago').value='Efectivo'; $('#observaciones').value='';
-  pagosTemp=[]; renderPagosTemp();
-  recalc();
-});
-
-$('#btnImprimir')?.addEventListener('click', ()=>{
-  // Asegurar que la zona PDF está rellenada antes de exportar
-  recalc();
-  const element = document.getElementById('printArea');
-  const d=new Date(); const file=`Factura-${($('#cliNombre').value||'Cliente').replace(/\s+/g,'')}-${fmtDateDMY(d)}.pdf`;
-  const opt = { margin:[10,10,10,10], filename:file, image:{type:'jpeg',quality:0.98}, html2canvas:{scale:2,useCORS:true}, jsPDF:{unit:'mm',format:'a4',orientation:'portrait'} };
-  window.html2pdf().set(opt).from(element).save();
-});
-// =====================================================
-// 🔘 BOTÓN: Añadir 4 % al subtotal (IVA real)
-// =====================================================
-document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
-  const subtotal = unMoney(document.getElementById('subtotal').textContent);
-  const transporte = unMoney(document.getElementById('transp').textContent);
-  const iva = (subtotal + transporte) * 0.04;
-  const total = subtotal + transporte + iva;
-
-  // Actualiza visualmente
-  document.getElementById('iva').textContent = money(iva);
-  document.getElementById('total').textContent = money(total);
-
-  // 🔒 Desactiva el botón para evitar sumas dobles
-  const btn = document.getElementById('btnSumarIVA');
-  btn.disabled = true;
-  btn.textContent = '✔ IVA añadido';
-
-  // Actualiza también el PDF de la factura
-  document.getElementById('p-iva').textContent = money(iva);
-  document.getElementById('p-tot').textContent = money(total);
-
-  const foot = document.getElementById('pdf-foot-note');
-  if (foot) {
-    foot.textContent = 'IVA (4%) añadido al total de la factura. Transporte 10% opcional.';
+$('#btnNueva')?.addEventListener('click',()=>{
+  if(confirm('¿Vaciar formulario actual?')){
+    $('#lineasBody').innerHTML=''; $('#listaPagos').innerHTML='';
+    $('#subtotal').textContent='0,00 €'; $('#transp').textContent='0,00 €'; $('#iva').textContent='0,00 €'; $('#total').textContent='0,00 €';
+    $('#cliNombre').value=''; $('#cliNif').value=''; $('#cliDir').value=''; $('#cliTel').value=''; $('#cliEmail').value='';
+    $('#observaciones').value='';
   }
-
-  // ⚙️ Ajustar valores de estado y pendiente
-  const manual = parseNum(document.getElementById('pagado')?.value || 0);
-  const pagos = window.pagosTemp || [];
-  const pagadoParcial = pagos.reduce((a,b)=>a+(b.amount||0),0);
-  const pagadoTotal = manual + pagadoParcial;
-  const pendiente = Math.max(0, total - pagadoTotal);
-
-  document.getElementById('pendiente').textContent = money(pendiente);
-
-  if (total <= 0) {
-    document.getElementById('estado').value = 'pendiente';
-  } else if (pagadoTotal <= 0) {
-    document.getElementById('estado').value = 'pendiente';
-  } else if (pagadoTotal < total) {
-    document.getElementById('estado').value = 'parcial';
-  } else {
-    document.getElementById('estado').value = 'pagado';
-  }
-
-  console.log(`✅ IVA (4%) añadido — Nuevo total: ${money(total)} — Pendiente actualizado: ${money(pendiente)}`);
 });
 
-/* ---------- LISTA DE FACTURAS ---------- */
+/* ---------- RENDER FACTURAS LIST ---------- */
 function badgeEstado(f){
   const tot=f.totals?.total||0, pag=f.totals?.pagado||0;
   if(pag>=tot) return `<span class="state-badge state-green">Pagada</span>`;
@@ -692,7 +572,6 @@ function renderPendientes(){
     });
   });
 }
-
 /* ---------- VENTAS (KPIs, gráficos, top, por cliente) ---------- */
 function sumBetween(d1,d2,filterClient=null){
   let sum=0;
@@ -718,6 +597,7 @@ function drawKPIs(){
   $('#vMes').textContent=money(mes);
   $('#vTotal').textContent=money(total);
 
+  // Espejo para Resumen
   $('#rHoy').textContent=money(hoy);
   $('#rSemana').textContent=money(semana);
   $('#rMes').textContent=money(mes);
@@ -741,8 +621,16 @@ function drawCharts(){
   if(typeof Chart==='undefined') return;
   const daily=groupDaily(7); const monthly=groupMonthly(12);
   if(chart1) chart1.destroy(); if(chart2) chart2.destroy();
-  chart1=new Chart(document.getElementById('chartDiario').getContext('2d'), {type:'bar', data:{labels:daily.map(d=>d.label), datasets:[{label:'Ventas diarias', data:daily.map(d=>d.sum)}]}, options:{responsive:true, plugins:{legend:{display:false}}}});
-  chart2=new Chart(document.getElementById('chartMensual').getContext('2d'), {type:'line', data:{labels:monthly.map(d=>d.label), datasets:[{label:'Ventas mensuales', data:monthly.map(d=>d.sum)}]}, options:{responsive:true, plugins:{legend:{display:false}}}});
+  chart1=new Chart(document.getElementById('chartDiario').getContext('2d'), {
+    type:'bar',
+    data:{labels:daily.map(d=>d.label), datasets:[{label:'Ventas diarias', data:daily.map(d=>d.sum)}]},
+    options:{responsive:true, plugins:{legend:{display:false}}}
+  });
+  chart2=new Chart(document.getElementById('chartMensual').getContext('2d'), {
+    type:'line',
+    data:{labels:monthly.map(d=>d.label), datasets:[{label:'Ventas mensuales', data:monthly.map(d=>d.sum)}]},
+    options:{responsive:true, plugins:{legend:{display:false}}}
+  });
 }
 function drawTop(){
   if(typeof Chart==='undefined') return;
@@ -756,7 +644,11 @@ function drawTop(){
   const pairs=[...map.entries()].sort((a,b)=>b[1]-a[1]).slice(0,10);
   const labels=pairs.map(p=>p[0]); const data=pairs.map(p=>p[1]);
   if(chartTop) chartTop.destroy();
-  chartTop=new Chart(document.getElementById('chartTop').getContext('2d'), {type:'bar', data:{labels, datasets:[{label:'Top productos (€)', data} ]}, options:{responsive:true, plugins:{legend:{display:false}}}});
+  chartTop=new Chart(document.getElementById('chartTop').getContext('2d'), {
+    type:'bar',
+    data:{labels, datasets:[{label:'Top productos (€)', data}]},
+    options:{responsive:true, plugins:{legend:{display:false}}}
+  });
 }
 
 function renderVentasCliente(){
@@ -787,7 +679,7 @@ function renderVentasCliente(){
   });
 }
 
-/* ---------- BACKUP/RESTORE + EXPORTS ---------- */
+/* ---------- RESPALDO / RESTAURACIÓN / EXPORTS ---------- */
 $('#btnBackup')?.addEventListener('click', ()=>{
   const payload={clientes, productos, facturas, priceHist, fecha: todayISO(), version:'ARSLAN PRO V10.4'};
   const filename=`backup-${fmtDateDMY(new Date())}.json`;
@@ -813,7 +705,7 @@ $('#btnRestore')?.addEventListener('click', ()=>{
   inp.click();
 });
 $('#btnExportClientes')?.addEventListener('click', ()=>downloadJSON(clientes,'clientes-arslan-v104.json'));
-$('#btnImportClientes')?.addEventListener('click', ()=>uploadJSON(arr=>{ if(Array.isArray(arr)){ clientes=uniqueByName(arr).map(c=>({...c, id:c.id||uid()})); save(K_CLIENTES,clientes); renderClientesSelect(); renderClientesLista(); } }));
+$('#btnImportClientes')?.addEventListener('click', ()=>uploadJSON(arr=>{ if(Array.isArray(arr)){ clientes=arr; ensureClienteIds(); save(K_CLIENTES,clientes); renderClientesSelect(); renderClientesLista(); } }));
 $('#btnExportProductos')?.addEventListener('click', ()=>downloadJSON(productos,'productos-arslan-v104.json'));
 $('#btnImportProductos')?.addEventListener('click', ()=>uploadJSON(arr=>{ if(Array.isArray(arr)){ productos=arr; save(K_PRODUCTOS,productos); populateProductDatalist(); renderProductos(); } }));
 $('#btnExportFacturas')?.addEventListener('click', ()=>downloadJSON(facturas,'facturas-arslan-v104.json'));
@@ -841,343 +733,319 @@ function exportVentasCSV(){
 
 /* ---------- EVENTOS GENERALES ---------- */
 $('#btnAddLinea')?.addEventListener('click', addLinea);
-$('#btnVaciarLineas')?.addEventListener('click', ()=>{ if(confirm('¿Vaciar líneas?')){ const tb=$('#lineasBody'); tb.innerHTML=''; for(let i=0;i<5;i++) addLinea(); recalc(); }});
+$('#btnVaciarLineas')?.addEventListener('click', ()=>{ if(confirm('¿Vaciar líneas?')){ const tb=$('#lineasBody'); tb.innerHTML=''; for(let i=0;i<5;i++) addLinea(); recalcTotals(); }});
 $('#btnNuevoCliente')?.addEventListener('click', ()=>switchTab('clientes'));
 $('#selCliente')?.addEventListener('change', ()=>{
   const id=$('#selCliente').value; if(!id) return; const c=clientes.find(x=>x.id===id); if(!c) return;
   fillClientFields(c);
 });
-$('#btnAddCliente')?.addEventListener('click', ()=>{
-  const nombre = prompt('Nombre del cliente:');
-  if (!nombre) return;
+/* ---------- IMPRESIÓN / PDF ---------- */
+function fillPrint(lines, totals, _tmp=null, f=null){
+  // Nº y fecha
+  $('#p-num').textContent = f?.numero || '(Sin guardar)';
+  $('#p-fecha').textContent = (f?new Date(f.fecha):new Date()).toLocaleString();
 
-  const nif = prompt('NIF/CIF:') || '';
-  const dir = prompt('Dirección:') || '';
-  const tel = prompt('Teléfono:') || '';
-  const email = prompt('Email:') || '';
+  // Proveedor
+  $('#p-prov').innerHTML = `
+    <div><strong>${escapeHTML(f?.proveedor?.nombre || $('#provNombre').value || '')}</strong></div>
+    <div>${escapeHTML(f?.proveedor?.nif || $('#provNif').value || '')}</div>
+    <div>${escapeHTML(f?.proveedor?.dir || $('#provDir').value || '')}</div>
+    <div>${escapeHTML(f?.proveedor?.tel || $('#provTel').value || '')} · ${escapeHTML(f?.proveedor?.email || $('#provEmail').value || '')}</div>
+  `;
 
-  // 💾 Guarda localmente (funciona offline)
-  clientes.push({ id: uid(), nombre, nif, dir, tel, email });
-  saveClientes();
-  renderClientesSelect();
-  renderClientesLista();
+  // Cliente
+  $('#p-cli').innerHTML = `
+    <div><strong>${escapeHTML(f?.cliente?.nombre || $('#cliNombre').value || '')}</strong></div>
+    <div>${escapeHTML(f?.cliente?.nif || $('#cliNif').value || '')}</div>
+    <div>${escapeHTML(f?.cliente?.dir || $('#cliDir').value || '')}</div>
+    <div>${escapeHTML(f?.cliente?.tel || $('#cliTel').value || '')} · ${escapeHTML(f?.cliente?.email || $('#cliEmail').value || '')}</div>
+  `;
 
-  // ☁️ Intenta también guardar en Supabase
-  (async () => {
-    try {
-      const { error } = await supabase
-        .from('clientes')
-        .insert([
-          {
-            nombre: nombre,
-            direccion: dir,
-            nif: nif,
-            telefono: tel
-          }
-        ]);
-      if (error) {
-        console.warn('⚠️ No se pudo sincronizar con Supabase:', error.message);
-      } else {
-        console.log('✅ Cliente guardado en Supabase correctamente');
-      }
-    } catch (e) {
-      console.error('❌ Error de conexión con Supabase:', e.message);
-    }
-  })();
+  // Tabla
+  const tbody=$('#p-tabla tbody'); tbody.innerHTML='';
+  (lines||[]).forEach(l=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`
+      <td>${escapeHTML(l.name||'')}</td>
+      <td>${escapeHTML(l.mode||'')}</td>
+      <td>${l.qty??''}</td>
+      <td>${(l.gross??'')!==''?Number(l.gross).toFixed(2):''}</td>
+      <td>${(l.tara??'')!==''?Number(l.tara).toFixed(2):''}</td>
+      <td>${(l.net??'')!==''?Number(l.net).toFixed(2):''}</td>
+      <td>${money(l.price||0)}</td>
+      <td>${escapeHTML(l.origin||'')}</td>
+      <td>${money((l.mode==='unidad') ? (l.qty||0)*(l.price||0) : (l.net||0)*(l.price||0))}</td>
+    `;
+    tbody.appendChild(tr);
+  });
+
+  // Totales
+  $('#p-sub').textContent = money(totals?.subtotal||0);
+  $('#p-tra').textContent = money(totals?.transp||0);
+  $('#p-iva').textContent = money(totals?.iva||0);
+  $('#p-tot').textContent = money(totals?.total||0);
+
+  // Estado y método
+  $('#p-estado').textContent = f?.estado || $('#estado')?.value || 'Impagada';
+  $('#p-metodo').textContent = f?.metodo || $('#metodoPago')?.value || 'Efectivo';
+
+  // Observaciones
+  $('#p-obs').textContent = f?.observ || ($('#observaciones')?.value || '—');
+
+  // Pie
+  const foot=$('#pdf-foot-note');
+  if(foot){
+    const conIncl = $('#chkIvaIncluido')?.checked;
+    foot.textContent = conIncl ? 'IVA incluido en los precios.' : 'IVA (4%) mostrado como informativo. Transporte 10% opcional.';
+  }
+
+  // QR
+  try{
+    const canvas=$('#p-qr');
+    const numero = f?.numero || '(Sin guardar)';
+    const cliente = f?.cliente?.nombre || $('#cliNombre').value || '';
+    const payload = `ARSLAN-Factura|${numero}|${cliente}|${money(totals?.total||0)}|${$('#p-estado').textContent}`;
+    window.QRCode.toCanvas(canvas, payload, {width:92, margin:0});
+  }catch(e){}
+}
+
+$('#btnImprimir')?.addEventListener('click', ()=>{
+  // Asegurar totales actualizados
+  recalcTotals();
+
+  // Rellenar vista previa con lo actual del formulario (sin guardar)
+  const subtotal=unMoney($('#subtotal').textContent);
+  const transp  =unMoney($('#transp').textContent);
+  const iva     =unMoney($('#iva').textContent);
+  const total   =unMoney($('#total').textContent);
+
+  const lineas=[];
+  $$('#lineasBody tr').forEach(tr=>{
+    const name=tr.querySelector('.name')?.value.trim();
+    const mode=tr.querySelector('.mode')?.value;
+    const qty =parseNum(tr.querySelector('.qty')?.value);
+    const gross=parseNum(tr.querySelector('.gross')?.value);
+    const tara =parseNum(tr.querySelector('.tara')?.value);
+    const net  =parseNum(tr.querySelector('.net')?.textContent);
+    const price=parseNum(tr.querySelector('.price')?.value);
+    const origin=tr.querySelector('.origin')?.value.trim();
+    lineas.push({name,mode,qty,gross,tara,net,price,origin});
+  });
+
+  fillPrint(lineas, {subtotal,transp,iva,total}, null, null);
+
+  const d=new Date(); const file=`Factura-${($('#cliNombre').value||'Cliente').replace(/\s+/g,'')}-${fmtDateDMY(d)}.pdf`;
+  const opt = {
+    margin:[10,10,10,10],
+    filename:file,
+    image:{type:'jpeg',quality:0.98},
+    html2canvas:{scale:2,useCORS:true},
+    jsPDF:{unit:'mm',format:'a4',orientation:'portrait'}
+  };
+  window.html2pdf().set(opt).from(document.getElementById('printArea')).save();
 });
 
+/* ---------- RESUMEN espejo ---------- */
+function drawResumen(){ drawKPIs(); }
 
-/* ---------- RESUMEN ---------- */
+/* ---------- RENDER TODO ---------- */
 function renderAll(){
   renderClientesSelect(); renderClientesLista();
   populateProductDatalist(); renderProductos(); renderFacturas(); renderPendientes();
   drawKPIs(); drawCharts(); drawTop(); renderVentasCliente(); drawResumen();
 }
-function drawResumen(){ drawKPIs(); }
 
-/* ---------- BOOT ---------- */
+/* ---------- SEMILLA + BOOT ---------- */
 (function boot(){
   seedClientesIfEmpty();
   ensureClienteIds();
   seedProductsIfEmpty();
-
   setProviderDefaultsIfEmpty();
 
-  const tb=$('#lineasBody'); if(tb && tb.children.length===0){ for(let i=0;i<5;i++) addLinea(); }
-
-  renderPagosTemp();
-  renderAll(); recalc();
-})();
-})();
-
-/* ================================
-   🎨 SELECTOR DE PALETAS (4 temas)
-   ================================ */
-(function(){
-  const PALETAS = {
-    kiwi:    {bg:'#ffffff', text:'#1e293b', accent:'#16a34a', border:'#d1d5db', muted:'#6b7280'},
-    graphite:{bg:'#111827', text:'#f9fafb', accent:'#3b82f6', border:'#374151', muted:'#94a3b8'},
-    sand:    {bg:'#fefce8', text:'#3f3f46', accent:'#ca8a04', border:'#e7e5e4', muted:'#78716c'},
-    mint:    {bg:'#ecfdf5', text:'#065f46', accent:'#059669', border:'#a7f3d0', muted:'#0f766e'}
-  };
-
-  const bar = document.createElement('div');
-  bar.id = 'colorToolbar';
-  document.body.appendChild(bar);
-
-  // Botones de paleta
-  for(const [name,p] of Object.entries(PALETAS)){
-    const b=document.createElement('button');
-    b.title=name; b.style.background=p.accent;
-    b.onclick=()=>aplicarTema(name);
-    bar.appendChild(b);
+  const tb=$('#lineasBody');
+  if(tb && tb.children.length===0){
+    for(let i=0;i<5;i++) addLinea();
   }
-
-  // Botón modo claro/oscuro
-  const toggle=document.createElement('button');
-  toggle.className='dark-toggle';
-  toggle.textContent='🌞/🌙';
-  toggle.onclick=()=>toggleDark();
-  bar.appendChild(toggle);
-
-  function aplicarTema(nombre){
-    const pal=PALETAS[nombre];
-    if(!pal) return;
-    const root=document.documentElement;
-    root.style.setProperty(`--bg`, pal.bg);
-    root.style.setProperty(`--text`, pal.text);
-    root.style.setProperty(`--accent`, pal.accent);
-    root.style.setProperty(`--accent-dark`, nombre==='graphite' ? '#1d4ed8' : (nombre==='sand'?'#a16207':(nombre==='mint'?'#047857':'#15803d')));
-    root.style.setProperty(`--border`, pal.border);
-    root.style.setProperty(`--muted`, pal.muted);
-    root.setAttribute('data-theme', nombre);
-    localStorage.setItem('arslan_tema', nombre);
-  }
-
-  function toggleDark(){
-    const isDark=document.body.classList.toggle('dark-mode');
-    localStorage.setItem('arslan_dark', isDark);
-    // el resto de vars se mantienen por paleta
-  }
-
-  // Restaurar configuración al cargar
-  const guardadoTema = localStorage.getItem('arslan_tema') || 'kiwi';
-  const guardadoDark = localStorage.getItem('arslan_dark') === 'true';
-  aplicarTema(guardadoTema);
-  if(guardadoDark) toggleDark();
-   /* ===========================================================
-   🔁 SINCRONIZACIÓN BIDIRECCIONAL CON SUPABASE
-   - Descarga datos al abrir.
-   - Sube nuevos datos o cambios cuando hay conexión.
-   - Mantiene todo sincronizado entre dispositivos.
-   =========================================================== */
-(async function syncBidireccional() {
-  console.log('☁️ Iniciando sincronización bidireccional...');
-  window.syncBidireccional = syncBidireccional;
-
-
-  // ✅ Tablas que queremos sincronizar
-  const TABLAS = {
-    clientes: { key: K_CLIENTES, mapOut: c => ({
-      id: c.id, nombre: c.nombre, direccion: c.dir, nif: c.nif, telefono: c.tel
-    }), mapIn: r => ({
-      id: r.id || uid(), nombre: r.nombre || '', dir: r.direccion || '',
-      nif: r.nif || '', tel: r.telefono || '', email: r.email || ''
-    }) },
-    facturas: { key: K_FACTURAS, mapOut: f => ({
-      numero: f.numero, fecha: f.fecha, cliente: f.cliente?.nombre,
-      total: f.totals?.total || 0, estado: f.estado
-    }), mapIn: r => r },
-    productos: { key: K_PRODUCTOS, mapOut: p => ({
-      name: p.name, mode: p.mode, boxkg: p.boxkg, price: p.price, origin: p.origin
-    }), mapIn: r => ({
-      name: r.name, mode: r.mode, boxkg: r.boxkg, price: r.price, origin: r.origin
-    }) }
-  };
-
-  // 🔁 Función para sincronizar una tabla
-  async function syncTable(nombre, cfg) {
-    console.log(`🔄 Sincronizando tabla: ${nombre}...`);
-    const localData = load(cfg.key, []);
-
-    try {
-      // --- DESCARGA ---
-      const { data: cloudData, error: errDown } = await supabase.from(nombre).select('*');
-      if (errDown) throw new Error(errDown.message);
-
-      // --- COMBINA ---
-      const merged = [...localData];
-      for (const r of cloudData) {
-        const existe = merged.find(x => (x.id && r.id) ? x.id === r.id : false);
-        if (!existe) merged.push(cfg.mapIn(r));
-      }
-
-      // --- GUARDA LOCAL ---
-      save(cfg.key, merged);
-
-      // --- SUBIDA (solo los que no estén en nube) ---
-      for (const item of localData) {
-        const existsInCloud = cloudData.some(r =>
-          (r.id && item.id && r.id === item.id) ||
-          (r.nombre && item.nombre && r.nombre === item.nombre)
-        );
-        if (!existsInCloud) {
-          const toUpload = cfg.mapOut(item);
-          const { error: errUp } = await supabase.from(nombre).insert([toUpload]);
-          if (errUp) console.warn(`⚠️ No se pudo subir ${nombre}:`, errUp.message);
-        }
-      }
-
-      console.log(`✅ ${nombre} sincronizada (${merged.length} registros locales)`);
-    } catch (e) {
-      console.warn(`⚠️ Error al sincronizar ${nombre}:`, e.message);
-    }
-  }
-
-  // 🌐 Comprueba conexión antes de sincronizar
-  if (navigator.onLine) {
-    for (const [nombre, cfg] of Object.entries(TABLAS)) {
-      await syncTable(nombre, cfg);
-    }
-    console.log('✨ Sincronización bidireccional completada');
-    renderAll();
-  } else {
-    console.log('📴 Sin conexión. Se usará solo la base local.');
-  }
-
-  // 🔔 Reintenta sincronizar al reconectarse
-  window.addEventListener('online', () => {
-    console.log('🔌 Conexión restaurada. Reintentando sincronizar...');
-    syncBidireccional();
-  });
+  renderAll();
+  recalcTotals();
 })();
 /* ===========================================================
-   📈 SINCRONIZACIÓN EXTENDIDA — priceHist, KPIs, Pendientes
+   ☁️ SUPABASE SYNC LITE (append-only, tolerante a errores)
+   - No modifica nada del flujo anterior.
+   - Sincroniza CLIENTES y PRODUCTOS de forma bidireccional simple.
+   - Intenta subir RESÚMENES básicos (KPI) si existe la tabla.
+   - Ignora errores de RLS o tablas inexistentes (logs en consola).
    =========================================================== */
-(async function syncExtendida() {
-  console.log('📊 Iniciando sincronización extendida...');
-  let facturas = [];
 
-  // Espera a que syncBidireccional exista antes de llamarla
-  window.addEventListener("load", async () => {
-    console.log("☁️ Iniciando sincronización bidireccional...");
-    if (typeof syncBidireccional === "function") {
-      await syncBidireccional();
-    } else {
-      console.warn("⚠️ La función syncBidireccional aún no está lista. Reintentando en 2 segundos...");
-      setTimeout(async () => {
-        if (typeof syncBidireccional === "function") {
-          await syncBidireccional();
-        } else {
-          console.error("❌ No se encontró syncBidireccional tras el reintento.");
-        }
-      }, 2000);
+async function supaSafeSelect(table) {
+  try {
+    const { data, error } = await supabase.from(table).select('*');
+    if (error) throw error;
+    return data || [];
+  } catch (e) {
+    console.warn(`⚠️ Supabase select falló en ${table}:`, e.message || e);
+    return [];
+  }
+}
+
+async function supaSafeInsert(table, rows) {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  try {
+    const { error } = await supabase.from(table).insert(rows);
+    if (error) throw error;
+  } catch (e) {
+    console.warn(`⚠️ Supabase insert falló en ${table}:`, e.message || e);
+  }
+}
+
+async function supaSafeUpsert(table, rows, onConflictCols) {
+  if (!Array.isArray(rows) || rows.length === 0) return;
+  try {
+    const { error } = await supabase.from(table).upsert(rows, onConflictCols ? { onConflict: onConflictCols } : {});
+    if (error) throw error;
+  } catch (e) {
+    console.warn(`⚠️ Supabase upsert falló en ${table}:`, e.message || e);
+  }
+}
+
+/* ---- CLIENTES: merge por id o nombre ---- */
+async function syncClientesLite() {
+  const cloud = await supaSafeSelect('clientes');
+  if (!Array.isArray(clientes)) clientes = [];
+  let merged = [...clientes];
+
+  // Merge de nube -> local
+  for (const r of cloud) {
+    const id = r.id || null;
+    const nombre = (r.nombre || '').trim();
+    const matchById   = id ? merged.find(x => x.id === id) : null;
+    const matchByName = !matchById && nombre ? merged.find(x => (x.nombre||'').trim().toLowerCase() === nombre.toLowerCase()) : null;
+
+    if (!matchById && !matchByName) {
+      merged.push({
+        id: id || uid(),
+        nombre,
+        nif: r.nif || '',
+        dir: r.direccion || r.dir || '',
+        tel: r.telefono || r.tel || '',
+        email: r.email || ''
+      });
     }
-  });
+  }
 
+  // Local -> nube (solo los que no existan por id o nombre)
+  const toUpload = [];
+  for (const c of clientes) {
+    const exists = cloud.some(r =>
+      (r.id && c.id && r.id === c.id) ||
+      ((r.nombre || '').trim().toLowerCase() === (c.nombre || '').trim().toLowerCase())
+    );
+    if (!exists) {
+      toUpload.push({
+        id: c.id,
+        nombre: c.nombre || '',
+        direccion: c.dir || '',
+        nif: c.nif || '',
+        telefono: c.tel || '',
+        email: c.email || ''
+      });
+    }
+  }
+
+  if (toUpload.length) await supaSafeInsert('clientes', toUpload);
+
+  // Guarda el merge local y refresca UI si cambió algo
+  const changed = JSON.stringify(merged) !== JSON.stringify(clientes);
+  if (changed) {
+    clientes = merged;
+    save(K_CLIENTES, clientes);
+    renderClientesSelect(); renderClientesLista();
+  }
+}
+
+/* ---- PRODUCTOS: merge por name ---- */
+async function syncProductosLite() {
+  const cloud = await supaSafeSelect('productos');
+  if (!Array.isArray(productos)) productos = [];
+  let merged = [...productos];
+
+  for (const r of cloud) {
+    const name = (r.name || '').trim();
+    if (!name) continue;
+    const exists = merged.some(p => (p.name || '').trim().toLowerCase() === name.toLowerCase());
+    if (!exists) {
+      merged.push({
+        name,
+        mode: r.mode || null,
+        boxkg: r.boxkg ?? null,
+        price: r.price ?? null,
+        origin: r.origin || null
+      });
+    }
+  }
+
+  const toUpload = [];
+  for (const p of productos) {
+    const exists = cloud.some(r => (r.name || '').trim().toLowerCase() === (p.name || '').trim().toLowerCase());
+    if (!exists) {
+      toUpload.push({
+        name: p.name || '',
+        mode: p.mode || null,
+        boxkg: p.boxkg ?? null,
+        price: p.price ?? null,
+        origin: p.origin || null
+      });
+    }
+  }
+
+  if (toUpload.length) await supaSafeInsert('productos', toUpload);
+
+  const changed = JSON.stringify(merged) !== JSON.stringify(productos);
+  if (changed) {
+    productos = merged;
+    save(K_PRODUCTOS, productos);
+    populateProductDatalist(); renderProductos();
+  }
+}
+
+/* ---- RESÚMENES KPI: upsert si existe tabla 'resumenes' ---- */
+async function syncResumenesLite() {
+  try {
+    const total_clientes = Array.isArray(clientes) ? clientes.length : 0;
+    const total_facturas = Array.isArray(facturas) ? facturas.length : 0;
+    const ventas_totales = Array.isArray(facturas) ? facturas.reduce((a,f)=>a+(f.totals?.total||0),0) : 0;
+    const pendientes = Array.isArray(facturas) ? facturas.filter(f=>f.estado!=='pagado').length : 0;
+
+    await supaSafeUpsert('resumenes', [{
+      fecha_sync: new Date().toISOString(),
+      total_clientes,
+      total_facturas,
+      ventas_totales,
+      pendientes
+    }], ['fecha_sync']);
+  } catch (e) {
+    console.warn('⚠️ No se pudo subir resumenes:', e.message || e);
+  }
+}
+
+/* ---- Sincronización orquestada ---- */
+async function supaSyncLite() {
   if (!navigator.onLine) {
-    console.log('📴 Sin conexión, esperando para sincronizar resúmenes.');
-    window.addEventListener('online', syncExtendida, { once: true });
+    console.log('📴 Offline — Supabase Sync Lite se aplaza.');
     return;
   }
+  console.log('☁️ Supabase Sync Lite — iniciando…');
+  await syncClientesLite();
+  await syncProductosLite();
+  await syncResumenesLite();
+  console.log('✅ Supabase Sync Lite — completada.');
+}
 
-  try {
-    // === HISTORIAL DE PRECIOS (priceHist) ===
-    const localHist = load(K_PRICEHIST, {});
-    const localHistList = Object.entries(localHist).flatMap(([name, arr]) =>
-      arr.map(h => ({ producto: name, precio: h.price, fecha: h.date }))
-    );
+/* Ejecuta al cargar si hay conexión y reintenta al reconectar */
+if (navigator.onLine) { supaSyncLite(); }
+window.addEventListener('online', supaSyncLite);
 
-    const { data: cloudHist, error: errHist } = await supabase
-      .from('pricehist')
-      .select('*');
-
-    if (!errHist) {
-      const merged = [...cloudHist];
-      for (const h of localHistList) {
-        const exists = merged.some(r =>
-          r.producto === h.producto && Math.abs(new Date(r.fecha) - new Date(h.fecha)) < 1000
-        );
-        if (!exists) merged.push(h);
-      }
-
-      for (const h of merged) {
-        const found = cloudHist.find(r =>
-          r.producto === h.producto && r.fecha === h.fecha
-        );
-        if (!found) {
-          const { error: upErr } = await supabase.from('pricehist').insert([h]);
-          if (upErr) console.warn('⚠️ No se pudo subir a priceHist:', upErr.message);
-        }
-      }
-      console.log(`✅ priceHist sincronizado (${merged.length} registros)`);
-    } else {
-      console.warn('⚠️ Error al sincronizar priceHist:', errHist.message);
-    }
-
-    // === RESÚMENES / KPIs ===
-    const totalFacturas = facturas.length;
-    const totalClientes = (typeof clientes !== "undefined") ? clientes.length : 0;
-    const ventasTotales = facturas.reduce((a,f)=>a+(f.totals?.total||0),0);
-    const pendientes = facturas.filter(f=>f.estado!=='pagado').length;
-
-    const resumenData = {
-      total_clientes: totalClientes,
-      total_facturas: totalFacturas,
-      ventas_totales: ventasTotales,
-      pendientes: pendientes,
-      fecha_sync: new Date().toISOString()
-    };
-
-    const { error: resumenErr } = await supabase
-      .from('resumenes')
-      .upsert(resumenData, { onConflict: ['fecha_sync'] });
-
-    if (!resumenErr) {
-      console.log('✅ Resumen de KPIs sincronizado con Supabase');
-    } else {
-      console.warn('⚠️ Error al subir resumen:', resumenErr.message);
-    }
-
-    // === PENDIENTES ===
-    const pendientesLista = facturas
-      .filter(f => f.estado !== 'pagado')
-      .map(f => ({
-        cliente: f.cliente?.nombre || '(sin cliente)',
-        pendiente: f.totals?.pendiente || 0,
-        fecha: f.fecha
-      }));
-
-    const { error: pendErr } = await supabase
-      .from('pendientes')
-      .upsert(pendientesLista);
-
-    if (!pendErr) {
-      console.log(`✅ Pendientes sincronizados (${pendientesLista.length} registros)`);
-    } else {
-      console.warn('⚠️ Error al subir pendientes:', pendErr.message);
-    }
-
-    console.log('✨ Sincronización extendida completada correctamente');
-  } catch (e) {
-    console.error('❌ Error en sincronización extendida:', e.message);
-  }
-})();
-
-// --- BOTÓN: Añadir 4 % al subtotal ---
-document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
-  const subtotal = unMoney(document.getElementById('subtotal').textContent);
-  const transp = unMoney(document.getElementById('transp').textContent);
-  const iva = (subtotal + transp) * 0.04;
-  const total = subtotal + transp + iva;
-
-  // Actualiza los campos visuales
-  document.getElementById('iva').textContent = money(iva);
-  document.getElementById('total').textContent = money(total);
-
-  console.log(`✅ IVA (4%) añadido: ${money(iva)} — Nuevo total: ${money(total)}`);
-}); // ← 💥 esta llave y paréntesis cierran el evento
-
-// ✅ Cierre final del bloque principal
-})();
-
+/* ===========================================================
+   🔚 FIN DEL MÓDULO PRINCIPAL
+   =========================================================== */
+})(); // ← Cierre del IIFE abierto al inicio
