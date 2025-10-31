@@ -1138,5 +1138,119 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
 
   console.log(`✅ IVA (4%) añadido: ${money(iva)} — Nuevo total: ${money(total)}`);
 });
+   /* ===========================================================
+   🔁 SINCRONIZACIÓN BIDIRECCIONAL CON POCKETBASE
+   =========================================================== */
+(async function syncBidireccional() {
+  console.log('☁️ Iniciando sincronización bidireccional (PocketBase)...');
+
+  // 🔑 Tablas que sincronizaremos
+  const TABLAS = {
+    clientes: {
+      key: K_CLIENTES,
+      mapOut: c => ({
+        id: c.id,
+        nombre: c.nombre,
+        direccion: c.dir,
+        nif: c.nif,
+        telefono: c.tel,
+        email: c.email,
+      }),
+      mapIn: r => ({
+        id: r.id,
+        nombre: r.nombre,
+        dir: r.direccion,
+        nif: r.nif,
+        tel: r.telefono,
+        email: r.email,
+      }),
+    },
+    productos: {
+      key: K_PRODUCTOS,
+      mapOut: p => ({
+        name: p.name,
+        mode: p.mode,
+        boxKg: p.boxKg,
+        price: p.price,
+        origin: p.origin,
+      }),
+      mapIn: r => ({
+        name: r.name,
+        mode: r.mode,
+        boxKg: r.boxKg,
+        price: r.price,
+        origin: r.origin,
+      }),
+    },
+    facturas: {
+      key: K_FACTURAS,
+      mapOut: f => ({
+        numero: f.numero,
+        fecha: f.fecha,
+        cliente: f.cliente?.nombre,
+        total: f.totals?.total || 0,
+        estado: f.estado,
+      }),
+      mapIn: r => r,
+    },
+    pricehist: {
+      key: K_PRICEHIST,
+      mapOut: h => h,
+      mapIn: h => h,
+    },
+  };
+
+  if (!navigator.onLine) {
+    console.log('📴 Sin conexión. Modo local activo.');
+    return;
+  }
+
+  // 🔄 Sincroniza cada tabla
+  async function syncTable(nombre, cfg) {
+    console.log(`🔄 Sincronizando ${nombre}...`);
+    const localData = load(cfg.key, []);
+
+    try {
+      // 📥 Descarga registros de la nube
+      const cloudData = await client.collection(nombre).getFullList({ sort: '-created' });
+
+      // 🧩 Combina datos sin duplicar
+      const merged = [...localData];
+      for (const r of cloudData) {
+        if (!merged.find(x => x.id === r.id)) merged.push(cfg.mapIn(r));
+      }
+
+      // 📤 Sube los nuevos que no estén en la nube
+      for (const item of localData) {
+        if (!cloudData.find(r => r.id === item.id)) {
+          await client.collection(nombre).create(cfg.mapOut(item));
+        }
+      }
+
+      // 💾 Guarda el resultado combinado
+      save(cfg.key, merged);
+      console.log(`✅ ${nombre} sincronizada (${merged.length} registros).`);
+    } catch (e) {
+      console.warn(`⚠️ Error al sincronizar ${nombre}:`, e.message);
+    }
+  }
+
+  // 🧠 Ejecuta sincronización para todas las tablas
+  for (const [nombre, cfg] of Object.entries(TABLAS)) {
+    await syncTable(nombre, cfg);
+  }
+
+  console.log('✨ Sincronización PocketBase completada.');
+  renderAll();
+
+  // 🔌 Escucha cambios en tiempo real
+  for (const nombre of Object.keys(TABLAS)) {
+    client.collection(nombre).subscribe('*', e => {
+      console.log(`🛰️ Cambio remoto en ${nombre}:`, e.action);
+      syncBidireccional();
+    });
+  }
+})();
+
 
 })();
