@@ -17,18 +17,11 @@ window.save = function (k, v) {
   localStorage.setItem(k, JSON.stringify(v));
 };
 
-// ✅ Corrección precisa: select correcto sin "columns="
-supabase
-  .from('clientes')
-  .select('id,nombre,direccion,nif,telefono,email') // <- ya correcto
-  .then(({ data, error }) => {
-    if (error) {
-      console.error('❌ Error obteniendo clientes:', error);
-    } else {
-      console.log('✅ Clientes recibidos de Supabase:', data);
-    }
-  })
-  .catch(console.error);
+// --- SUPABASE INIT ---
+const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+supabase.from('clientes').select('*').then(console.log).catch(console.error);
 
 
 /* =======================================================
@@ -1184,6 +1177,78 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
 
   console.log(`✅ IVA (4%) añadido: ${money(iva)} — Nuevo total: ${money(total)}`);
 }); // ← 💥 esta llave y paréntesis cierran el evento
+/* ========================================================================
+   ☁️ SINCRONIZACIÓN INICIAL DESDE SUPABASE (solo al abrir la app)
+   - Descarga clientes, productos y facturas si hay conexión
+   - Sólo sobrescribe si la nube tiene algo más reciente
+   - No sube nada automáticamente a Supabase
+   ======================================================================== */
+(async function syncAlAbrir() {
+  console.log("☁️ Iniciando sincronización inicial desde Supabase…");
+
+  if (!navigator.onLine) {
+    console.warn("📴 Sin conexión. Se usará solo la base local.");
+    return;
+  }
+
+  try {
+    // --- CLIENTES ---
+    const { data: cloudClientes, error: errCli } = await supabase.from('clientes').select('*');
+    if (!errCli && cloudClientes.length > 0) {
+      console.log(`📥 Clientes descargados (${cloudClientes.length})`);
+      const descargados = cloudClientes.map(r => ({
+        id: r.id || uid(),
+        nombre: r.nombre || '',
+        dir: r.direccion || '',
+        nif: r.nif || '',
+        tel: r.telefono || '',
+        email: r.email || ''
+      }));
+      save(K_CLIENTES, descargados);
+      clientes = descargados;
+    }
+
+    // --- PRODUCTOS ---
+    const { data: cloudProductos, error: errProd } = await supabase.from('productos').select('*');
+    if (!errProd && cloudProductos.length > 0) {
+      console.log(`📥 Productos descargados (${cloudProductos.length})`);
+      const descargados = cloudProductos.map(r => ({
+        name: r.name || '',
+        mode: r.mode || '',
+        boxkg: r.boxkg || null,
+        price: r.price || null,
+        origin: r.origin || null
+      }));
+      save(K_PRODUCTOS, descargados);
+      productos = descargados;
+    }
+
+    // --- FACTURAS ---
+    const { data: cloudFacturas, error: errFac } = await supabase.from('facturas').select('*');
+    if (!errFac && cloudFacturas.length > 0) {
+      console.log(`📥 Facturas descargadas (${cloudFacturas.length})`);
+      save(K_FACTURAS, cloudFacturas);
+      facturas = cloudFacturas;
+    }
+
+    console.log("✅ Sincronización inicial completada.");
+    renderAll();
+  } catch (e) {
+    console.error("❌ Error en sincronización inicial:", e.message);
+  }
+})();
+
+/* ========================================================================
+   🔘 BOTÓN MANUAL: Sincronizar con Supabase (descarga sin sobrescribir)
+   ======================================================================== */
+document.getElementById('btnSyncSupabase')?.addEventListener('click', async () => {
+  if (!navigator.onLine) {
+    alert('📴 Sin conexión a internet. No se puede sincronizar.');
+    return;
+  }
+  alert('☁️ Iniciando sincronización… consulta la consola para detalles.');
+  await syncAlAbrir();
+});
 
 // ✅ Cierre final del bloque principal
 })();
