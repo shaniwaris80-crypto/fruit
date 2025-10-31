@@ -122,6 +122,7 @@ button:disabled{opacity:.6;cursor:not-allowed}
 .calc-table th,.calc-table td{border-bottom:1px solid var(--border);padding:8px;font-size:14px}
 .calc-table thead th{position:sticky;top:0;background:var(--bg);z-index:1}
 .calc-table tbody tr:nth-child(2n){background:var(--row)}
+.calc-table tbody tr.supabase-loading{opacity:0.6;}
 .calc-table td input,.calc-table td select{width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;background:var(--bg);color:var(--text)}
 .calc-table td .del{background:#f3f3f3;color:#111}
 
@@ -195,6 +196,23 @@ button:disabled{opacity:.6;cursor:not-allowed}
 }
 #pricePanel .pp-title{font-weight:700;margin-bottom:8px}
 #pricePanel .pp-row{display:flex;justify-content:space-between;border-bottom:1px dashed var(--border);padding:4px 0}
+
+/* ---------- Supabase visual ---------- */
+.supabase-status{
+  position:fixed;
+  bottom:64px;
+  right:14px;
+  padding:10px 16px;
+  background:var(--info);
+  color:#fff;
+  border-radius:8px;
+  font-size:13px;
+  font-weight:600;
+  z-index:90;
+  display:none;
+}
+.supabase-status.error{background:var(--danger)}
+.supabase-status.ok{background:var(--accent-dark)}
 
 /* ---------- Transiciones suaves ---------- */
 html,body{transition:background-color .4s,color .4s}
