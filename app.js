@@ -1165,6 +1165,27 @@ if (typeof renderAll === 'function') {
     syncBidireccional();
   });
 })();
+  /* ===========================================================
+   🩹 FIX UNIVERSAL — Evitar "arr.map is not a function"
+   =========================================================== */
+function safeArray(input) {
+  if (Array.isArray(input)) return input;
+  if (input === null || input === undefined) return [];
+  if (typeof input === "object") return Object.values(input);
+  return [input];
+}
+
+// 🔁 Reemplazo global de map para asegurar arrays
+const _oldMap = Array.prototype.map;
+Array.prototype.map = function(fn, thisArg) {
+  try {
+    return _oldMap.call(this, fn, thisArg);
+  } catch (e) {
+    console.warn("⚠️ safeArray.map aplicado:", e);
+    return safeArray(this).map(fn, thisArg);
+  }
+};
+
 /* ===========================================================
    📈 SINCRONIZACIÓN EXTENDIDA — priceHist, KPIs, Pendientes
    =========================================================== */
