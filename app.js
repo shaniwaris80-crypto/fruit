@@ -50,7 +50,7 @@ async function syncAlAbrir() {
       save(K_PRODUCTOS, productosData);
     }
 
-    // 📥 Descargar Facturas al abrir (si así lo deseas)
+    // 📥 Descargar Facturas al abrir
     const { data: facturasData, error: facturasError } = await supabase
       .from('facturas')
       .select('*');
@@ -60,6 +60,18 @@ async function syncAlAbrir() {
     } else {
       console.log('✅ Facturas recibidas de Supabase:', facturasData);
       save(K_FACTURAS, facturasData);
+    }
+
+    // 📥 Descargar Histórico de Precios al abrir
+    const { data: priceHistData, error: priceHistError } = await supabase
+      .from('priceHist')
+      .select('*');
+
+    if (priceHistError) {
+      console.error('❌ Error obteniendo priceHist:', priceHistError);
+    } else {
+      console.log('✅ PriceHist recibido de Supabase:', priceHistData);
+      save(K_PRICEHIST, priceHistData);
     }
 
     // 👇 Llamada a tu render global (si existe)
