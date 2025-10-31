@@ -1286,5 +1286,27 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
   };
   console.log("🩹 FIX activo: priceHist seguro (arrays garantizados).");
 })();
+/* 🩹 FIX: Evita error arr.map is not a function (priceHist corrupto) */
+(function(){
+  const fix = localStorage.getItem('arslan_v104_pricehist');
+  if(fix){
+    try{
+      const data = JSON.parse(fix);
+      for(const k in data){ if(!Array.isArray(data[k])) data[k]=[]; }
+      localStorage.setItem('arslan_v104_pricehist', JSON.stringify(data));
+      console.log("✅ priceHist reparado automáticamente.");
+    }catch(e){ console.warn("⚠️ priceHist corrupto, se omitió reparación."); }
+  }
+})();
+/* 🕓 FIX: Esperar a que renderAll exista antes de refrescar */
+(function waitRenderAll(){
+  if(typeof renderAll === "function"){
+    console.log("✅ renderAll listo — refrescando vista.");
+    renderAll();
+  } else {
+    console.log("⏳ Esperando a que renderAll esté disponible...");
+    setTimeout(waitRenderAll, 1500);
+  }
+})();
 
 
