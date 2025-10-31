@@ -22,22 +22,24 @@ const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// --- SINCRONIZACIÓN AUTOMÁTICA SOLO AL ABRIR ---
 async function syncAlAbrir() {
-  console.log("☁️ Iniciando descarga desde Supabase...");
-
   try {
-    // 📥 Descargar Clientes
-    const { data: clientesData, error: clientesError } = await supabase
+    console.log('🔄 Descargando datos desde Supabase...');
+    const { data: cli, error: errCli } = await supabase
       .from('clientes')
-      .select('id, nombre, direccion, nif, telefono, email');
+      .select('*');
 
-    if (clientesError) throw clientesError;
-    if (Array.isArray(clientesData)) {
-      console.log("✅ Clientes descargados:", clientesData.length);
-      window.clientes = clientesData;
-      save(K_CLIENTES, clientesData);
+    if (!errCli && cli) {
+      save(K_CLIENTES, cli);
+      console.log(`✅ Clientes descargados: (${cli.length})`);
     }
+    
+    // productos...
+    // facturas...
+  } catch (e) {
+    console.error('❌ Error en sincronización inicial:', e);
+  }
+}
 
     // 📥 Descargar Productos
     const { data: productosData, error: productosError } = await supabase
