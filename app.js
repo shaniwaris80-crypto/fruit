@@ -1,294 +1,5 @@
-// --- GLOBAL FIX FOR KEYS AND LOAD/SAVE ---
-window.K_CLIENTES   = 'arslan_v104_clientes';
-window.K_PRODUCTOS  = 'arslan_v104_productos';
-window.K_FACTURAS   = 'arslan_v104_facturas';
-window.K_PRICEHIST  = 'arslan_v104_pricehist';
-
-window.load = function (k, fallback) {
-  try {
-    const v = JSON.parse(localStorage.getItem(k) || '');
-    return v ?? fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-window.save = function (k, v) {
-  localStorage.setItem(k, JSON.stringify(v));
-};
-
-// --- SUPABASE INIT ---
-const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-supabase.from('clientes').select('*').then(console.log).catch(console.error);
-
-
-/* =======================================================
-   ARSLAN PRO V10.4 — KIWI Edition (Full, estable)
-   - Misma base funcional + mejoras de totales, PDF, UX rápido
-   - 4 paletas, sin splash, logo kiwi solo en PDF, "FACTURA"
-   - Clientes: selección segura por ID (evita datos cruzados)
-======================================================= */
-(function(){
-"use strict";
-
-/* ---------- HELPERS ---------- */
-const $  = (s,root=document)=>root.querySelector(s);
-const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
-const money = n => (isNaN(n)?0:n).toFixed(2).replace('.', ',') + " €";
-const parseNum = v => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? 0 : n; };
-const escapeHTML = s => String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
-const todayISO = () => new Date().toISOString();
-const fmtDateDMY = d => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
-const unMoney = s => parseFloat(String(s).replace(/\./g,'').replace(',','.').replace(/[^\d.]/g,'')) || 0;
-const uid = ()=>'c'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);
-
-/* ---------- KEYS ---------- */
-const K_CLIENTES='arslan_v104_clientes';
-const K_PRODUCTOS='arslan_v104_productos';
-const K_FACTURAS='arslan_v104_facturas';
-const K_PRICEHIST='arslan_v104_pricehist';
-
-/* ---------- ESTADO ---------- */
-let clientes  = load(K_CLIENTES, []);
-let productos = load(K_PRODUCTOS, []);
-let facturas  = load(K_FACTURAS, []);
-let priceHist = load(K_PRICEHIST, {});
-
-function load(k, fallback){ try{ const v = JSON.parse(localStorage.getItem(k)||''); return v ?? fallback; } catch{ return fallback; } }
-function save(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
-
-/* ---------- TABS ---------- */
-function switchTab(id){
-  $$('button.tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===id));
-  $$('section.panel').forEach(p=>p.classList.toggle('active', p.dataset.tabPanel===id));
-  if(id==='ventas'){ drawKPIs(); drawCharts(); drawTop(); renderVentasCliente(); }
-  if(id==='pendientes'){ renderPendientes(); }
-  if(id==='resumen'){ drawResumen(); }
-}
-$$('button.tab').forEach(b=>b.addEventListener('click', ()=>switchTab(b.dataset.tab)));
-
-/* ---------- SEED DATA ---------- */
-function uniqueByName(arr){
-  const map=new Map();
-  arr.forEach(c=>{ const k=(c.nombre||'').trim().toLowerCase(); if(k && !map.has(k)) map.set(k,c); });
-  return [...map.values()];
-}
-function ensureClienteIds(){
-  clientes.forEach(c=>{ if(!c.id) c.id=uid(); });
-}
-function seedClientesIfEmpty(){
-  if(clientes.length) return ensureClienteIds();
-  clientes = uniqueByName([
-    {id:uid(), nombre:'Riviera — CONOR ESY SLU', nif:'B16794893', dir:'Paseo del Espolón, 09003 Burgos'},
-    {id:uid(), nombre:'Alesal Pan / Café de Calle San Lesmes — Alesal Pan y Café S.L.', nif:'B09582420', dir:'C/ San Lesmes 1, Burgos'},
-    {id:uid(), nombre:'Al Pan Pan Burgos, S.L.', nif:'B09569344', dir:'C/ Miranda 17, Bajo, 09002 Burgos', tel:'947 277 977', email:'bertiz.miranda@gmail.com'},
-    {id:uid(), nombre:'Cuevas Palacios Restauración S.L. (Con/sentidos)', nif:'B10694792', dir:'C/ San Lesmes, 1 – 09004 Burgos', tel:'947 20 35 51'},
-    {id:uid(), nombre:'Café Bar Nuovo (Einy Mercedes Olivo Jiménez)', nif:'120221393', dir:'C/ San Juan de Ortega 14, 09007 Burgos'},
-    {id:uid(), nombre:'Hotel Cordon'},
-    {id:uid(), nombre:'Vaivén Hostelería'},
-    {id:uid(), nombre:'Grupo Resicare'},
-    {id:uid(), nombre:'Carlos Alameda Peralta & Seis Más'},
-    {id:uid(), nombre:'Tabalou Development SLU', nif:'ES B09567769'},
-    {id:uid(), nombre:'Golden Garden — David Herrera Estalayo', nif:'71281665L', dir:'Trinidad, 12, 09003 Burgos'},
-    {id:uid(), nombre:'Romina — PREMIER', dir:'C/ Madrid 42, Burgos'},
-    {id:uid(), nombre:'Abbas — Locutorio Gamonal', dir:'C/ Derechos Humanos 45, Burgos'},
-    {id:uid(), nombre:'Nadeem Bhai — RIA Locutorio', dir:'C/ Vitoria 137, Burgos'},
-    {id:uid(), nombre:'Mehmood — Mohsin Telecom', dir:'C/ Vitoria 245, Burgos'},
-    {id:uid(), nombre:'Adnan Asif', nif:'X7128589S', dir:'C/ Padre Flórez 3, Burgos'},
-    {id:uid(), nombre:'Imran Khan — Estambul', dir:'Avda. del Cid, Burgos'},
-    {id:uid(), nombre:'Waqas Sohail', dir:'C/ Vitoria, Burgos'},
-    {id:uid(), nombre:'Malik — Locutorio Malik', dir:'C/ Progreso, Burgos'},
-    {id:uid(), nombre:'Angela', dir:'C/ Madrid, Burgos'},
-    {id:uid(), nombre:'Aslam — Locutorio Aslam', dir:'Avda. del Cid, Burgos'},
-    {id:uid(), nombre:'Victor Pelu — Tienda Centro', dir:'Burgos Centro'},
-    {id:uid(), nombre:'Domingo'},
-    {id:uid(), nombre:'Bar Tropical'},
-    {id:uid(), nombre:'Bar Punta Cana — PUNTA CANA', dir:'C/ Los Titos, Burgos'},
-    {id:uid(), nombre:'Jose — Alimentación Patxi', dir:'C/ Camino Casa la Vega 33, Burgos'},
-    {id:uid(), nombre:'Ideal — Ideal Supermercado', dir:'Avda. del Cid, Burgos'}
-  ]);
-  save(K_CLIENTES, clientes);
-}
-const PRODUCT_NAMES = [
-"GRANNY FRANCIA","MANZANA PINK LADY","MANDARINA COLOMBE","KIWI ZESPRI GOLD","PARAGUAYO","KIWI TOMASIN PLANCHA","PERA RINCON DEL SOTO","MELOCOTON PRIMERA","AGUACATE GRANEL","MARACUYÁ",
-"MANZANA GOLDEN 24","PLATANO CANARIO PRIMERA","MANDARINA HOJA","MANZANA GOLDEN 20","NARANJA TOMASIN","NECTARINA","NUECES","SANDIA","LIMON SEGUNDA","MANZANA FUJI",
-"NARANJA MESA SONRISA","JENGIBRE","BATATA","AJO PRIMERA","CEBOLLA NORMAL","CALABAZA GRANDE","PATATA LAVADA","TOMATE CHERRY RAMA","TOMATE CHERRY PERA","TOMATE DANIELA","TOMATE ROSA PRIMERA",
-"CEBOLLINO","TOMATE ASURCADO MARRON","TOMATE RAMA","PIMIENTO PADRON","ZANAHORIA","PEPINO","CEBOLLETA","PUERROS","BROCOLI","JUDIA VERDE","BERENJENA","PIMIENTO ITALIANO VERDE",
-"PIMIENTO ITALIANO ROJO","CHAMPIÑON","UVA ROJA","UVA BLANCA","ALCACHOFA","CALABACIN","COLIFLOR","BATAVIA","ICEBERG","MANDARINA SEGUNDA","MANZANA GOLDEN 28","NARANJA ZUMO","KIWI SEGUNDA",
-"MANZANA ROYAL GALA 24","PLATANO CANARIO SUELTO","CEREZA","FRESAS","ARANDANOS","ESPINACA","PEREJIL","CILANTRO","ACELGAS","PIMIENTO VERDE","PIMIENTO ROJO","MACHO VERDE","MACHO MADURO",
-"YUCA","AVOCADO","CEBOLLA ROJA","MENTA","HABANERO","RABANITOS","POMELO","PAPAYA","REINETA 28","NISPERO","ALBARICOQUE","TOMATE PERA","TOMATE BOLA","TOMATE PINK","VALVENOSTA GOLDEN",
-"MELOCOTON ROJO","MELON GALIA","APIO","NARANJA SANHUJA","LIMON PRIMERA","MANGO","MELOCOTON AMARILLO","VALVENOSTA ROJA","PIÑA","NARANJA HOJA","PERA CONFERENCIA SEGUNDA","CEBOLLA DULCE",
-"TOMATE ASURCADO AZUL","ESPARRAGOS BLANCOS","ESPARRAGOS TRIGUEROS","REINETA PRIMERA","AGUACATE PRIMERA","COCO","NECTARINA SEGUNDA","REINETA 24","NECTARINA CARNE BLANCA","GUINDILLA",
-"REINETA VERDE","PATATA 25KG","PATATA 5 KG","TOMATE RAFF","REPOLLO","KIWI ZESPRI","PARAGUAYO SEGUNDA","MELON","REINETA 26","TOMATE ROSA","MANZANA CRIPS",
-"ALOE VERA PIEZAS","TOMATE ENSALADA","PATATA 10KG","MELON BOLLO","CIRUELA ROJA","LIMA","GUINEO VERDE","SETAS","BANANA","BONIATO","FRAMBUESA","BREVAS","PERA AGUA","YAUTIA","YAME",
-"OKRA","MANZANA MELASSI","CACAHUETE","SANDIA NEGRA","SANDIA RAYADA","HIGOS","KUMATO","KIWI CHILE","MELOCOTON AMARILLO SEGUNDA","HIERBABUENA","REMOLACHA","LECHUGA ROMANA","CEREZA",
-"KAKI","CIRUELA CLAUDIA","PERA LIMONERA","CIRUELA AMARILLA","HIGOS BLANCOS","UVA ALVILLO","LIMON EXTRA","PITAHAYA ROJA","HIGO CHUMBO","CLEMENTINA","GRANADA","NECTARINA PRIMERA BIS",
-"CHIRIMOYA","UVA CHELVA","PIMIENTO CALIFORNIA VERDE","KIWI TOMASIN","PIMIENTO CALIFORNIA ROJO","MANDARINA SATSUMA","CASTAÑA","CAKI","MANZANA KANZI","PERA ERCOLINA","NABO",
-"UVA ALVILLO NEGRA","CHAYOTE","ROYAL GALA 28","MANDARINA PRIMERA","PIMIENTO PINTON","MELOCOTON AMARILLO DE CALANDA","HINOJOS","MANDARINA DE HOJA","UVA ROJA PRIMERA","UVA BLANCA PRIMERA"
-];
-function seedProductsIfEmpty(){
-  if(productos.length) return;
-  productos = PRODUCT_NAMES.map(n=>({name:n}));
-  save(K_PRODUCTOS, productos);
-}
-
-/* ---------- PROVIDER DEFAULTS (tus datos) ---------- */
-function setProviderDefaultsIfEmpty(){
-  if(!$('#provNombre').value) $('#provNombre').value = 'Mohammad Arslan Waris';
-  if(!$('#provNif').value)    $('#provNif').value    = 'X6389988J';
-  if(!$('#provDir').value)    $('#provDir').value    = 'Calle San Pablo 17, 09003 Burgos';
-  if(!$('#provTel').value)    $('#provTel').value    = '631 667 893';
-  if(!$('#provEmail').value)  $('#provEmail').value  = 'shaniwaris80@gmail.com';
-}
-
-/* ---------- HISTORIAL DE PRECIOS ---------- */
-function lastPrice(name){ const arr = priceHist[name]; return arr?.length ? arr[0].price : null; }
-function pushPriceHistory(name, price){
-  if(!name || !(price>0)) return;
-  const arr = priceHist[name] || [];
-  arr.unshift({price, date: todayISO()});
-  priceHist[name] = arr.slice(0,10);
-  save(K_PRICEHIST, priceHist);
-}
-function renderPriceHistory(name){
-  const panel=$('#pricePanel'), body=$('#ppBody'); if(!panel||!body) return;
-  panel.removeAttribute('hidden');
-  const hist=priceHist[name]||[];
-  if(hist.length===0){ body.innerHTML=`<div class="pp-row"><span>${escapeHTML(name)}</span><strong>Sin datos</strong></div>`; hidePanelSoon(); return; }
-  body.innerHTML=`<div class="pp-row" style="justify-content:center"><strong>${escapeHTML(name)}</strong></div>` +
-    hist.map(h=>`<div class="pp-row"><span>${fmtDateDMY(new Date(h.date))}</span><strong>${money(h.price)}</strong></div>`).join('');
-  hidePanelSoon();
-}
-function hidePanelSoon(){ clearTimeout(hidePanelSoon.t); hidePanelSoon.t=setTimeout(()=>$('#pricePanel')?.setAttribute('hidden',''), 4800); }
-
-/* ---------- CLIENTES UI (IDs seguras) ---------- */
 /* ===========================================================
-   🧩 CREACIÓN / GUARDADO DE CLIENTES CON UUID VÁLIDO
-   =========================================================== */
-function saveCliente() {
-  try {
-    const nombre = $('#cliente-nombre').value.trim();
-    const direccion = $('#cliente-direccion').value.trim();
-    const nif = $('#cliente-nif').value.trim();
-    const telefono = $('#cliente-telefono').value.trim();
-    const email = $('#cliente-email').value.trim();
-
-    if (!nombre) {
-      alert('⚠️ Debes introducir un nombre para el cliente.');
-      return;
-    }
-
-    // Detectar cliente existente (modo edición)
-    let idCliente = $('#cliente-id').value || null;
-
-    // Si el ID actual no existe o no es un UUID válido, se genera uno nuevo
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!idCliente || !uuidRegex.test(idCliente)) {
-      idCliente = crypto.randomUUID();
-    }
-
-    const cliente = {
-      id: idCliente,
-      nombre,
-      direccion,
-      nif,
-      telefono,
-      email,
-      ts: new Date().toISOString()
-    };
-
-    // Actualizar o añadir localmente
-    let clientes = JSON.parse(localStorage.getItem('clientes') || '[]');
-    const i = clientes.findIndex(c => c.id === cliente.id);
-    if (i >= 0) clientes[i] = cliente;
-    else clientes.push(cliente);
-
-    localStorage.setItem('clientes', JSON.stringify(clientes));
-
-    console.log('✅ Cliente guardado localmente:', cliente);
-
-    // 🔁 Intentar sincronización inmediata con Supabase
-    if (window.syncTable) {
-      syncTable('clientes');
-    }
-
-    alert('✅ Cliente guardado correctamente');
-    renderAll();
-  } catch (err) {
-    console.error('❌ Error guardando cliente:', err);
-    alert('Error al guardar el cliente. Revisa la consola.');
-  }
-}
-
-function renderClientesLista(){
-  const cont = $('#listaClientes'); if(!cont) return;
-  cont.innerHTML='';
-  const q = ($('#buscarCliente')?.value||'').toLowerCase();
-  const arr = [...clientes].sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
-  const view = q ? arr.filter(c=>(c.nombre||'').toLowerCase().includes(q) || (c.nif||'').toLowerCase().includes(q) || (c.dir||'').toLowerCase().includes(q)) : arr;
-  if(view.length===0){ cont.innerHTML='<div class="item">Sin clientes.</div>'; return; }
-  view.forEach((c)=>{
-    const row=document.createElement('div'); row.className='item';
-    row.innerHTML=`
-      <div>
-        <strong>${escapeHTML(c.nombre||'(Sin nombre)')}</strong>
-        <div class="muted">${escapeHTML(c.nif||'')} · ${escapeHTML(c.dir||'')}</div>
-      </div>
-      <div class="row">
-        <button class="ghost" data-e="use" data-id="${c.id}">Usar</button>
-        <button class="ghost" data-e="edit" data-id="${c.id}">Editar</button>
-        <button class="ghost" data-e="del" data-id="${c.id}">Borrar</button>
-      </div>
-    `;
-    cont.appendChild(row);
-  });
-  cont.querySelectorAll('button').forEach(b=>{
-    const id=b.dataset.id;
-    b.addEventListener('click', ()=>{
-      const i=clientes.findIndex(x=>x.id===id); if(i<0) return;
-      if(b.dataset.e==='use'){
-        const c=clientes[i]; if(!c) return;
-        fillClientFields(c); switchTab('factura');
-      }else if(b.dataset.e==='edit'){
-        const c=clientes[i];
-        const nombre=prompt('Nombre',c.nombre||'')??c.nombre;
-        const nif=prompt('NIF',c.nif||'')??c.nif;
-        const dir=prompt('Dirección',c.dir||'')??c.dir;
-        const tel=prompt('Tel',c.tel||'')??c.tel;
-        const email=prompt('Email',c.email||'')??c.email;
-        clientes[i]={...c,nombre,nif,dir,tel,email}; saveClientes(); renderClientesSelect(); renderClientesLista();
-      }else{
-        if(confirm('¿Eliminar cliente?')){ clientes.splice(i,1); saveClientes(); renderClientesSelect(); renderClientesLista(); // 🚀 También guardar en Supabase
-(async () => {
-  try {
-    const { error } = await supabase
-      .from('clientes')
-      .insert([
-        {
-          nombre: nombre,
-          direccion: dir,
-          nif: nif,
-          telefono: tel
-        }
-      ]);
-    if (error) console.warn('⚠️ Error subiendo a Supabase:', error);
-    else console.log('Cliente guardado en Supabase correctamente ✅');
-  } catch (e) {
-    console.error('❌ Error de conexión Supabase:', e);
-  }
-})();
-}
-      }
-    });
-  });
-}
-function fillClientFields(c){
-  $('#cliNombre').value=c.nombre||''; $('#cliNif').value=c.nif||''; $('#cliDir').value=c.dir||''; $('#cliTel').value=c.tel||''; $('#cliEmail').value=c.email||'';
-}
-/* ===========================================================
-   ARSLAN PRO V10.4 — FIX COMPLETO SYNC + RENDER CLIENTES
+   ARSLAN PRO V10.4 — FIX UNIVERSAL CLIENTES / SYNC / RENDER
    =========================================================== */
 
 /* ---------- UTILIDADES ---------- */
@@ -302,23 +13,19 @@ const parseNum = v => {
 const escapeHTML = s => String(s || "");
 
 /* ===========================================================
-   🩹 FIX: renderClientesSelect — evita error si no existe
+   🩹 FIX: renderClientesSelect — definido ANTES DE TODO
    =========================================================== */
-if (typeof renderClientesSelect !== "function") {
-  function renderClientesSelect() {
-    try {
-      const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
-      const select = document.querySelector("#factura-cliente");
-      if (!select) return;
-
-      select.innerHTML = clientes
-        .map(c => `<option value="${c.id}">${c.nombre}</option>`)
-        .join("");
-
-      console.log(`🧾 renderClientesSelect actualizado (${clientes.length} clientes)`);
-    } catch (err) {
-      console.warn("⚠️ No se pudo renderizar el selector de clientes:", err);
-    }
+function renderClientesSelect() {
+  try {
+    const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
+    const select = document.querySelector("#factura-cliente");
+    if (!select) return;
+    select.innerHTML = clientes
+      .map(c => `<option value="${c.id}">${c.nombre}</option>`)
+      .join("");
+    console.log(`🧾 renderClientesSelect actualizado (${clientes.length} clientes)`);
+  } catch (err) {
+    console.warn("⚠️ No se pudo renderizar el selector de clientes:", err);
   }
 }
 
@@ -327,21 +34,20 @@ if (typeof renderClientesSelect !== "function") {
    =========================================================== */
 function saveCliente() {
   try {
-    const nombre = $("#cliente-nombre").value.trim();
-    const direccion = $("#cliente-direccion").value.trim();
-    const nif = $("#cliente-nif").value.trim();
-    const telefono = $("#cliente-telefono").value.trim();
-    const email = $("#cliente-email").value.trim();
+    const nombre = $("#cliente-nombre")?.value.trim() || "";
+    const direccion = $("#cliente-direccion")?.value.trim() || "";
+    const nif = $("#cliente-nif")?.value.trim() || "";
+    const telefono = $("#cliente-telefono")?.value.trim() || "";
+    const email = $("#cliente-email")?.value.trim() || "";
 
     if (!nombre) {
       alert("⚠️ Debes introducir un nombre para el cliente.");
       return;
     }
 
-    // Detectar cliente existente (modo edición)
-    let idCliente = $("#cliente-id").value || null;
+    let idCliente = $("#cliente-id")?.value || null;
 
-    // Si el ID actual no existe o no es un UUID válido, se genera uno nuevo
+    // Generar UUID si no es válido
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!idCliente || !uuidRegex.test(idCliente)) {
       idCliente = crypto.randomUUID();
@@ -357,7 +63,6 @@ function saveCliente() {
       ts: new Date().toISOString(),
     };
 
-    // Actualizar o añadir localmente
     let clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
     const i = clientes.findIndex(c => c.id === cliente.id);
     if (i >= 0) clientes[i] = cliente;
@@ -367,31 +72,24 @@ function saveCliente() {
 
     console.log("✅ Cliente guardado localmente:", cliente);
 
-    // 🔁 Intentar sincronización inmediata con Supabase
-    if (window.syncTable) {
-      syncTable("clientes");
-    }
+    if (window.syncTable) syncTable("clientes");
 
     alert("✅ Cliente guardado correctamente");
-
-    // 🧾 Refrescar el selector de clientes y la vista general
     renderClientesSelect();
     renderAll();
   } catch (err) {
     console.error("❌ Error guardando cliente:", err);
-    alert("Error al guardar el cliente. Revisa la consola.");
   }
 }
 
 /* ===========================================================
    🧾 FUNCIÓN GLOBAL: renderAll()
-   - Refresca toda la interfaz principal
    =========================================================== */
 function renderAll() {
   try {
-    console.log("🔄 Ejecutando renderAll universal...");
+    console.log("🔄 Ejecutando renderAll...");
 
-    /* ---------- CLIENTES ---------- */
+    // CLIENTES
     const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
     const contClientes = document.querySelector("#clientes-lista");
     if (contClientes) {
@@ -399,22 +97,22 @@ function renderAll() {
         ? clientes
             .map(
               c => `
-              <div class="cliente-item">
-                <strong>${c.nombre}</strong><br>
-                <small>${c.nif || ""}</small><br>
-                <small>${c.direccion || ""}</small><br>
-                <small>${c.telefono || ""}</small><br>
-                <small>${c.email || ""}</small>
-              </div>`
+          <div class="cliente-item">
+            <strong>${c.nombre}</strong><br>
+            <small>${c.nif || ""}</small><br>
+            <small>${c.direccion || ""}</small><br>
+            <small>${c.telefono || ""}</small><br>
+            <small>${c.email || ""}</small>
+          </div>`
             )
             .join("")
         : "<p class='muted'>Sin clientes registrados</p>";
     }
 
-    /* ---------- SELECT CLIENTES ---------- */
-    if (typeof renderClientesSelect === "function") renderClientesSelect();
+    // SELECT CLIENTES
+    renderClientesSelect();
 
-    /* ---------- PRODUCTOS ---------- */
+    // PRODUCTOS
     const productos = JSON.parse(localStorage.getItem("productos") || "[]");
     const contProductos = document.querySelector("#productos-lista");
     if (contProductos) {
@@ -422,16 +120,16 @@ function renderAll() {
         ? productos
             .map(
               p => `
-              <div class="producto-item">
-                <strong>${p.nombre}</strong><br>
-                <small>${p.mode || "—"} | ${p.price || 0} €/u</small>
-              </div>`
+          <div class="producto-item">
+            <strong>${p.nombre}</strong><br>
+            <small>${p.mode || "—"} | ${p.price || 0} €/u</small>
+          </div>`
             )
             .join("")
         : "<p class='muted'>Sin productos registrados</p>";
     }
 
-    /* ---------- FACTURAS ---------- */
+    // FACTURAS
     const facturas = JSON.parse(localStorage.getItem("facturas") || "[]");
     const contFacturas = document.querySelector("#facturas-lista");
     if (contFacturas) {
@@ -439,18 +137,18 @@ function renderAll() {
         ? facturas
             .map(
               f => `
-              <div class="factura-item">
-                <strong>${f.numero}</strong><br>
-                <small>Cliente: ${f.clienteNombre || "—"}</small><br>
-                <small>Total: ${(f.totalConIVA || f.total || 0).toFixed(2)} €</small><br>
-                <small>Fecha: ${new Date(f.ts).toLocaleDateString()}</small>
-              </div>`
+          <div class="factura-item">
+            <strong>${f.numero}</strong><br>
+            <small>Cliente: ${f.clienteNombre || "—"}</small><br>
+            <small>Total: ${(f.totalConIVA || f.total || 0).toFixed(2)} €</small><br>
+            <small>Fecha: ${new Date(f.ts).toLocaleDateString()}</small>
+          </div>`
             )
             .join("")
         : "<p class='muted'>Sin facturas generadas</p>";
     }
 
-    /* ---------- PRICE HISTORIAL ---------- */
+    // HISTORIAL DE PRECIOS
     const priceHist = JSON.parse(localStorage.getItem("priceHist") || "{}");
     const contHist = document.querySelector("#priceHist-lista");
     if (contHist) {
@@ -460,10 +158,10 @@ function renderAll() {
             .map(([prod, hist]) => {
               const last = hist[hist.length - 1];
               return `
-                <div class="historial-item">
-                  <strong>${prod}</strong><br>
-                  <small>Último precio: ${last?.price || 0} €</small>
-                </div>`;
+            <div class="historial-item">
+              <strong>${prod}</strong><br>
+              <small>Último precio: ${last?.price || 0} €</small>
+            </div>`;
             })
             .join("")
         : "<p class='muted'>Sin historial de precios</p>";
@@ -476,22 +174,22 @@ function renderAll() {
 }
 
 /* ===========================================================
-   🚀 BOOT: CARGA INICIAL
+   🚀 BOOT INICIAL
    =========================================================== */
 async function boot() {
   console.log("🚀 Iniciando ARSLAN PRO…");
 
-  // Cargar datos locales primero
+  // Carga datos locales
   renderAll();
 
-  // Intentar sincronización inicial si Supabase está listo
+  // Si existe función de sincronización, la lanza
   if (window.syncTable) {
-    console.log("☁️ Iniciando sincronización bidireccional...");
     try {
+      console.log("☁️ Sincronizando tablas iniciales...");
       await syncTable("clientes");
       await syncTable("productos");
       await syncTable("facturas");
-      console.log("✅ Sincronización inicial completada correctamente.");
+      console.log("✅ Sincronización inicial completada.");
     } catch (e) {
       console.warn("⚠️ Error durante sincronización inicial:", e);
     }
@@ -501,6 +199,7 @@ async function boot() {
 }
 
 document.addEventListener("DOMContentLoaded", boot);
+
 /* ---------- PRODUCTOS UI ---------- */
 function saveProductos(){ save(K_PRODUCTOS, productos); }
 function populateProductDatalist(){
