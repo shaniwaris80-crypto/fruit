@@ -1074,29 +1074,47 @@ function drawResumen(){ drawKPIs(); }
     syncBidireccional();
   });
 })();
-/* ===========================================================
-   📈 SINCRONIZACIÓN EXTENDIDA — priceHist, KPIs, Pendientes
-   =========================================================== */
-(async function syncExtendida() {
-  console.log('📊 Iniciando sincronización extendida...');
-  let facturas = [];
+/* ============================================================
+   🔄 SYNC EXTENDIDA — SUPABASE BIDIRECCIONAL
+   ============================================================ */
+async function syncExtendida() {
+  try {
+    console.log("☁️ Iniciando sincronización bidireccional…");
 
-  // Espera a que syncBidireccional exista antes de llamarla
-  window.addEventListener("load", async () => {
-    console.log("☁️ Iniciando sincronización bidireccional...");
-    if (typeof syncBidireccional === "function") {
-      await syncBidireccional();
-    } else {
-      console.warn("⚠️ La función syncBidireccional aún no está lista. Reintentando en 2 segundos...");
-      setTimeout(async () => {
-        if (typeof syncBidireccional === "function") {
-          await syncBidireccional();
-        } else {
-          console.error("❌ No se encontró syncBidireccional tras el reintento.");
-        }
-      }, 2000);
-    }
-  });
+    // === CLIENTES ===
+    const { data: clientes, error: errC } = await supabase
+      .from("clientes")
+      .select("id, nombre, direccion, nif, telefono, email");
+    if (errC) throw errC;
+    const clientesNorm = normalizarKeys(clientes);
+    localStorage.setItem("clientes", JSON.stringify(clientesNorm));
+    console.log(`📥 Clientes sincronizados: ${clientesNorm.length}`);
+
+    // === PRODUCTOS ===
+    const { data: productos, error: errP } = await supabase
+      .from("productos")
+      .select("id, name, mode, boxkg, price, origin, price_hist");
+    if (errP) throw errP;
+    const productosNorm = normalizarKeys(productos);
+    localStorage.setItem("productos", JSON.stringify(productosNorm));
+    console.log(`📥 Productos sincronizados: ${productosNorm.length}`);
+
+    // === FACTURAS ===
+    const { data: facturas, error: errF } = await supabase
+      .from("facturas")
+      .select("id, cliente_id, lineas, total, iva, transporte, fecha");
+    if (errF) throw errF;
+    localStorage.setItem("facturas", JSON.stringify(facturas));
+    console.log(`📥 Facturas sincronizadas: ${facturas.length}`);
+
+    // Render UI
+    if (typeof renderAll === "function") renderAll();
+
+    console.log("✅ Sincronización completada correctamente.");
+  } catch (err) {
+    console.error("❌ Error en sincronización extendida:", err.message || err);
+  }
+}
 
   if (!navigator.onLine) {
     console.log('📴 Sin conexión, esperando para sincronizar resúmenes.');
