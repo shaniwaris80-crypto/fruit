@@ -29,9 +29,6 @@ if (typeof SUPABASE_URL === 'undefined') {
     .catch(console.error);
 }
 
-}
-
-
 
 /* =======================================================
    ARSLAN PRO V10.4 — KIWI Edition (Full, estable)
