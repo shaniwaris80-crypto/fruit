@@ -1,4 +1,3 @@
-import PocketBase from 'https://cdn.jsdelivr.net/npm/pocketbase@0.21.1/dist/pocketbase.es.mjs';
 
 const pb = new PocketBase('https://step-powerful.pockethost.io');
 console.log('✅ PocketBase inicializado:', pb);
