@@ -22,7 +22,13 @@ if (typeof SUPABASE_URL === 'undefined') {
   const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
   const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
   const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-  supabase.from('clientes').select('*').then(console.log).catch(console.error);
+
+  // ✅ Corrección: select correcto sin comillas ni columns=
+  supabase.from('clientes').select('id,nombre,direccion,nif,telefono,email')
+    .then(console.log)
+    .catch(console.error);
+}
+
 }
 
 
