@@ -484,6 +484,37 @@ function fillPrint(lines, totals, _temp=null, f=null){
 /* ---------- GUARDAR / NUEVA / PDF ---------- */
 function genNumFactura(){ const d=new Date(), pad=n=>String(n).padStart(2,'0'); return `FA-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`; }
 function saveFacturas(){ save(K_FACTURAS, facturas); }
+  /* ===========================================================
+   ☁️ SUBIR FACTURA NUEVA A SUPABASE TRAS GUARDARLA
+   =========================================================== */
+try {
+  if (supabase && facturaActual) {
+    const { data, error } = await supabase
+      .from('facturas')
+      .upsert([{
+        id: facturaActual.id,
+        numero: facturaActual.numero,
+        cliente: facturaActual.cliente,
+        nif: facturaActual.nif,
+        direccion: facturaActual.direccion,
+        telefono: facturaActual.telefono,
+        email: facturaActual.email,
+        fecha: facturaActual.fecha,
+        total: facturaActual.total,
+        estado: facturaActual.estado || 'Pendiente',
+        updated_at: new Date().toISOString()
+      }]);
+
+    if (error) {
+      console.warn("⚠️ Error subiendo factura:", error);
+    } else {
+      console.log("✅ Factura subida correctamente:", data);
+    }
+  }
+} catch (e) {
+  console.error("❌ Error al subir la factura:", e);
+}
+
 
 $('#btnGuardar')?.addEventListener('click', ()=>{
   const ls=captureLineas(); if(ls.length===0){ alert('Añade al menos una línea.'); return; }
