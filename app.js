@@ -17,11 +17,18 @@ window.save = function (k, v) {
   localStorage.setItem(k, JSON.stringify(v));
 };
 
-// --- SUPABASE INIT ---
-const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-supabase.from('clientes').select('*').then(console.log).catch(console.error);
+// ✅ Corrección precisa: select correcto sin "columns="
+supabase
+  .from('clientes')
+  .select('id,nombre,direccion,nif,telefono,email') // <- ya correcto
+  .then(({ data, error }) => {
+    if (error) {
+      console.error('❌ Error obteniendo clientes:', error);
+    } else {
+      console.log('✅ Clientes recibidos de Supabase:', data);
+    }
+  })
+  .catch(console.error);
 
 
 /* =======================================================
