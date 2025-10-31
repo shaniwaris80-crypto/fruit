@@ -517,10 +517,12 @@ async function saveFacturas() {
         })));
 
       if (error) {
-        console.warn("⚠️ Error subiendo facturas:", error);
-      } else {
-        console.log("✅ Facturas subidas correctamente a Supabase:", data?.length || 0);
-      }
+    if (error) {
+  console.error("❌ Error al subir la factura:", error.message || error);
+} else {
+  console.log("✅ Factura subida correctamente:", data);
+}
+
     } else {
       console.warn("ℹ️ No hay facturas que subir o Supabase no está inicializado.");
     }
