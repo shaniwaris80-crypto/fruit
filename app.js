@@ -21,60 +21,59 @@ window.save = function (k, v) {
 const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
 
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  global: {
-    headers: {
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-    }
-  }
-});
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-
-
+// ✅ Corrección: Encapsular await dentro de función async
+async function syncAlAbrir() {
   try {
-    console.log('🔄 Descargando datos desde Supabase...');
-    const { data: cli, error: errCli } = await supabase
+    // 📥 Descargar Clientes al abrir
+    const { data: clientesData, error: clientesError } = await supabase
       .from('clientes')
+      .select('id, nombre, direccion, nif, telefono, email');
+
+    if (clientesError) {
+      console.error('❌ Error obteniendo clientes:', clientesError);
+    } else {
+      console.log('✅ Clientes recibidos de Supabase:', clientesData);
+      save(K_CLIENTES, clientesData);
+    }
+
+    // 📥 Descargar Productos al abrir
+    const { data: productosData, error: productosError } = await supabase
+      .from('productos')
+      .select('name, mode, boxkg, price, origin');
+
+    if (productosError) {
+      console.error('❌ Error obteniendo productos:', productosError);
+    } else {
+      console.log('✅ Productos recibidos de Supabase:', productosData);
+      save(K_PRODUCTOS, productosData);
+    }
+
+    // 📥 Descargar Facturas al abrir (si así lo deseas)
+    const { data: facturasData, error: facturasError } = await supabase
+      .from('facturas')
       .select('*');
 
-    if (!errCli && cli) {
-      save(K_CLIENTES, cli);
-      console.log(`✅ Clientes descargados: (${cli.length})`);
+    if (facturasError) {
+      console.error('❌ Error obteniendo facturas:', facturasError);
+    } else {
+      console.log('✅ Facturas recibidas de Supabase:', facturasData);
+      save(K_FACTURAS, facturasData);
     }
-    
-    // productos...
-    // facturas...
+
+    // 👇 Llamada a tu render global (si existe)
+    if (typeof renderAll === 'function') {
+      renderAll();
+    }
   } catch (e) {
     console.error('❌ Error en sincronización inicial:', e);
   }
 }
 
-    // 📥 Descargar Productos
-    const { data: productosData, error: productosError } = await supabase
-      .from('productos')
-      .select('name, mode, boxkg, price, origin');
-
-    if (productosError) throw productosError;
-    if (Array.isArray(productosData)) {
-      console.log("✅ Productos descargados:", productosData.length);
-      window.productos = productosData;
-      save(K_PRODUCTOS, productosData);
-    }
-
-    // 🔄 Refrescar interfaz si existe renderAll
-    if (typeof renderAll === "function") {
-      renderAll();
-    } else {
-      console.warn("⚠️ No se encontró renderAll para refrescar UI.");
-    }
-  } catch (e) {
-    console.error("❌ Error en sincronización al abrir:", e);
-  }
-}
-
-// ⏯ Ejecutar al abrir la app
+// 🚀 Ejecuta la sincronización al abrir
 syncAlAbrir();
+
 
 /* =======================================================
    ARSLAN PRO V10.4 — KIWI Edition (Full, estable)
