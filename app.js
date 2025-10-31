@@ -17,6 +17,28 @@ window.save = function (k, v) {
   localStorage.setItem(k, JSON.stringify(v));
 };
 
+// --- SUPABASE INIT ---
+const SUPABASE_URL = 'https://fjfbokkcdbm
+
+// --- GLOBAL FIX FOR KEYS AND LOAD/SAVE ---
+window.K_CLIENTES   = 'arslan_v104_clientes';
+window.K_PRODUCTOS  = 'arslan_v104_productos';
+window.K_FACTURAS   = 'arslan_v104_facturas';
+window.K_PRICEHIST  = 'arslan_v104_pricehist';
+
+window.load = function (k, fallback) {
+  try {
+    const v = JSON.parse(localStorage.getItem(k) || '');
+    return v ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
+
+window.save = function (k, v) {
+  localStorage.setItem(k, JSON.stringify(v));
+};
+
 // --- SUPABASE INIT (Solo descarga al abrir) ---
 const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
