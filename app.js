@@ -1736,6 +1736,33 @@ window.addEventListener('online', () => {
     }
   }, 1000);
 })();
+/* ===========================================================
+   💚 FIX FINAL DEFINITIVO — RenderAll persistente
+   =========================================================== */
+(function waitForRenderAndSync() {
+  console.log("🧩 Monitorizando aparición de renderAll...");
+  let tries = 0;
+
+  const timer = setInterval(() => {
+    tries++;
+    if (typeof renderAll === "function") {
+      console.log("✅ renderAll detectado tras", tries, "intentos.");
+      try {
+        renderAll();
+        console.log("🎉 Interfaz actualizada con datos sincronizados.");
+      } catch (err) {
+        console.error("❌ Error ejecutando renderAll:", err);
+      }
+      clearInterval(timer);
+    } else if (tries > 60) {
+      console.warn("⚠️ Han pasado 60 segundos y renderAll aún no se definió. Reintentando lento...");
+      clearInterval(timer);
+      setTimeout(waitForRenderAndSync, 5000); // vuelve a intentarlo en 5 s
+    } else if (tries % 10 === 0) {
+      console.log("⌛ Esperando renderAll...", tries, "segundos");
+    }
+  }, 1000);
+})();
 
 
 
