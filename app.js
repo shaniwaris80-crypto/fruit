@@ -1643,5 +1643,57 @@ window.addEventListener("load", async () => {
 
   console.warn("⚠️ No se detectó renderAll después de 30 segundos. Puede ser necesario recargar la app.");
 })();
+/* ===========================================================
+   🔄 SYNC REALTIME — Mantiene todos los dispositivos actualizados
+   =========================================================== */
+(async function enableRealtimeSync() {
+  console.log("📡 Activando sincronización en tiempo real global...");
+
+  // Espera a que Supabase y renderAll estén listos
+  for (let i = 0; i < 20; i++) {
+    if (typeof supabase !== "undefined" && typeof renderAll === "function") break;
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  if (typeof supabase === "undefined") return console.warn("⚠️ Supabase aún no cargado.");
+  if (typeof renderAll !== "function") return console.warn("⚠️ renderAll aún no definido.");
+
+  // Escuchar cambios de tablas principales
+  const tables = ["clientes", "productos", "facturas"];
+
+  tables.forEach(tbl => {
+    try {
+      supabase
+        .channel(`realtime:${tbl}`)
+        .on(
+          "postgres_changes",
+          { event: "*", schema: "public", table: tbl },
+          payload => {
+            console.log(`📢 Cambio detectado en ${tbl}:`, payload.eventType, payload.new || payload.old);
+            // Lógica de actualización local mínima
+            const key = `arslan_v104_${tbl}`;
+            const local = JSON.parse(localStorage.getItem(key) || "[]");
+
+            if (payload.eventType === "INSERT" && payload.new) {
+              local.push(payload.new);
+            } else if (payload.eventType === "UPDATE" && payload.new) {
+              const idx = local.findIndex(i => i.id === payload.new.id);
+              if (idx >= 0) local[idx] = payload.new;
+            } else if (payload.eventType === "DELETE" && payload.old) {
+              const idx = local.findIndex(i => i.id === payload.old.id);
+              if (idx >= 0) local.splice(idx, 1);
+            }
+
+            localStorage.setItem(key, JSON.stringify(local));
+            renderAll(); // refresca la interfaz
+          }
+        )
+        .subscribe(status => console.log(`✅ Canal realtime activo para ${tbl}`, status));
+    } catch (e) {
+      console.error(`❌ Error activando realtime para ${tbl}:`, e);
+    }
+  });
+
+  console.log("✨ Realtime activado correctamente para CLIENTES, PRODUCTOS y FACTURAS.");
+})();
 
 
