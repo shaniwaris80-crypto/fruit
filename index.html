@@ -21,7 +21,6 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
   <!-- ⚙️ Registro del Service Worker -->
-  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.1"></script>
   <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
@@ -218,6 +217,7 @@
       <div class="pdf-foot" id="pdf-foot-note">IVA incluido en los precios.</div>
     </div>
   </section>
+
   <!-- ========== CLIENTES ========== -->
   <section class="panel" data-tab-panel="clientes">
     <div class="card">
@@ -363,19 +363,7 @@
 </main>
 
 <!-- 📲 BOTÓN INSTALAR APP -->
-<button id="installBtn" style="
-  position:fixed;
-  bottom:15px;
-  right:15px;
-  background:#16a34a;
-  color:white;
-  padding:10px 18px;
-  border:none;
-  border-radius:12px;
-  font-weight:600;
-  box-shadow:0 3px 8px rgba(0,0,0,0.25);
-  display:none;
-  z-index:9999;">
+<button id="installBtn" style="position:fixed;bottom:15px;right:15px;background:#16a34a;color:white;padding:10px 18px;border:none;border-radius:12px;font-weight:600;box-shadow:0 3px 8px rgba(0,0,0,0.25);display:none;z-index:9999;">
   📲 Instalar App
 </button>
 
@@ -385,21 +373,4 @@ let deferredPrompt;
 window.addEventListener('beforeinstallprompt', e => {
   e.preventDefault();
   deferredPrompt = e;
-  document.getElementById('installBtn').style.display = 'block';
-});
-document.getElementById('installBtn').addEventListener('click', async () => {
-  if (deferredPrompt) {
-    deferredPrompt.prompt();
-    const { outcome } = await deferredPrompt.userChoice;
-    console.log(`📲 Instalación: ${outcome}`);
-    deferredPrompt = null;
-    document.getElementById('installBtn').style.display = 'none';
-  }
-});
-</script>
-
-<!-- 🔌 SUPABASE + APP -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="app.js"></script>
-</body>
-</html>
+  document.getElement
