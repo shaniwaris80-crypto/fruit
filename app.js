@@ -1245,9 +1245,18 @@ if (!Array.prototype.safeMap) {
 /* ===========================================================
    📈 SINCRONIZACIÓN EXTENDIDA — priceHist, KPIs, Pendientes
    =========================================================== */
+/* ===========================================================
+   🔁 SINCRONIZACIÓN EXTENDIDA CON SUPABASE (versión segura)
+   =========================================================== */
 (async function syncExtendida() {
-  console.log('📊 Iniciando sincronización extendida...');
+  console.log("📊 Iniciando sincronización extendida...");
   let facturas = [];
+
+  // 🧱 FIX universal para arr.map / flatMap
+  const safeMap = (arr, fn) => {
+    if (!Array.isArray(arr)) return [];
+    try { return arr.map(fn); } catch (e) { console.warn("⚠️ safeMap:", e); return []; }
+  };
 
   // Espera a que syncBidireccional exista antes de llamarla
   window.addEventListener("load", async () => {
@@ -1255,7 +1264,7 @@ if (!Array.prototype.safeMap) {
     if (typeof syncBidireccional === "function") {
       await syncBidireccional();
     } else {
-      console.warn("⚠️ La función syncBidireccional aún no está lista. Reintentando en 2 segundos...");
+      console.warn("⚠️ syncBidireccional no lista. Reintentando en 2s...");
       setTimeout(async () => {
         if (typeof syncBidireccional === "function") {
           await syncBidireccional();
@@ -1267,8 +1276,8 @@ if (!Array.prototype.safeMap) {
   });
 
   if (!navigator.onLine) {
-    console.log('📴 Sin conexión, esperando para sincronizar resúmenes.');
-    window.addEventListener('online', syncExtendida, { once: true });
+    console.log("📴 Sin conexión. Esperando reconexión para sincronizar...");
+    window.addEventListener("online", syncExtendida, { once: true });
     return;
   }
 
@@ -1276,41 +1285,47 @@ if (!Array.prototype.safeMap) {
     // === HISTORIAL DE PRECIOS (priceHist) ===
     const localHist = load(K_PRICEHIST, {});
     const localHistList = Object.entries(localHist).flatMap(([name, arr]) =>
-      arr.map(h => ({ producto: name, precio: h.price, fecha: h.date }))
+      safeMap(arr, h => ({ producto: name, precio: h.price, fecha: h.date }))
     );
 
     const { data: cloudHist, error: errHist } = await supabase
-      .from('pricehist')
-      .select('*');
+      .from("pricehist")
+      .select("*");
 
-    if (!errHist) {
+    if (!errHist && Array.isArray(cloudHist)) {
       const merged = [...cloudHist];
       for (const h of localHistList) {
-        const exists = merged.some(r =>
-          r.producto === h.producto && Math.abs(new Date(r.fecha) - new Date(h.fecha)) < 1000
+        const exists = merged.some(
+          r =>
+            r.producto === h.producto &&
+            Math.abs(new Date(r.fecha) - new Date(h.fecha)) < 1000
         );
         if (!exists) merged.push(h);
       }
 
       for (const h of merged) {
-        const found = cloudHist.find(r =>
-          r.producto === h.producto && r.fecha === h.fecha
+        const found = cloudHist.find(
+          r => r.producto === h.producto && r.fecha === h.fecha
         );
         if (!found) {
-          const { error: upErr } = await supabase.from('pricehist').insert([h]);
-          if (upErr) console.warn('⚠️ No se pudo subir a priceHist:', upErr.message);
+          const { error: upErr } = await supabase.from("pricehist").insert([h]);
+          if (upErr)
+            console.warn("⚠️ No se pudo subir a priceHist:", upErr.message);
         }
       }
-      console.log(`✅ priceHist sincronizado (${merged.length} registros)`);
+      console.log(`✅ priceHist sincronizado (${merged.length} registros).`);
     } else {
-      console.warn('⚠️ Error al sincronizar priceHist:', errHist.message);
+      console.warn("⚠️ Error al sincronizar priceHist:", errHist?.message);
     }
 
     // === RESÚMENES / KPIs ===
     const totalFacturas = facturas.length;
-    const totalClientes = (typeof clientes !== "undefined") ? clientes.length : 0;
-    const ventasTotales = facturas.reduce((a,f)=>a+(f.totals?.total||0),0);
-    const pendientes = facturas.filter(f=>f.estado!=='pagado').length;
+    const totalClientes = typeof clientes !== "undefined" ? clientes.length : 0;
+    const ventasTotales = facturas.reduce(
+      (a, f) => a + (f.totals?.total || 0),
+      0
+    );
+    const pendientes = facturas.filter(f => f.estado !== "pagado").length;
 
     const resumenData = {
       total_clientes: totalClientes,
@@ -1321,37 +1336,39 @@ if (!Array.prototype.safeMap) {
     };
 
     const { error: resumenErr } = await supabase
-      .from('resumenes')
-      .upsert(resumenData, { onConflict: ['fecha_sync'] });
+      .from("resumenes")
+      .upsert(resumenData, { onConflict: ["fecha_sync"] });
 
     if (!resumenErr) {
-      console.log('✅ Resumen de KPIs sincronizado con Supabase');
+      console.log("✅ Resumen de KPIs sincronizado con Supabase.");
     } else {
-      console.warn('⚠️ Error al subir resumen:', resumenErr.message);
+      console.warn("⚠️ Error al subir resumen:", resumenErr.message);
     }
 
     // === PENDIENTES ===
     const pendientesLista = facturas
-      .filter(f => f.estado !== 'pagado')
+      .filter(f => f.estado !== "pagado")
       .map(f => ({
-        cliente: f.cliente?.nombre || '(sin cliente)',
+        cliente: f.cliente?.nombre || "(sin cliente)",
         pendiente: f.totals?.pendiente || 0,
         fecha: f.fecha
       }));
 
     const { error: pendErr } = await supabase
-      .from('pendientes')
+      .from("pendientes")
       .upsert(pendientesLista);
 
     if (!pendErr) {
-      console.log(`✅ Pendientes sincronizados (${pendientesLista.length} registros)`);
+      console.log(
+        `✅ Pendientes sincronizados (${pendientesLista.length} registros).`
+      );
     } else {
-      console.warn('⚠️ Error al subir pendientes:', pendErr.message);
+      console.warn("⚠️ Error al subir pendientes:", pendErr.message);
     }
 
-    console.log('✨ Sincronización extendida completada correctamente');
+    console.log("✨ Sincronización extendida completada correctamente.");
   } catch (e) {
-    console.error('❌ Error en sincronización extendida:', e.message);
+    console.error("❌ Error en sincronización extendida:", e.message || e);
   }
 })();
 
