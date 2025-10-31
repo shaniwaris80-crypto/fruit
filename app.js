@@ -1403,4 +1403,93 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
 
   console.log("✨ Escuchando cambios en tiempo real de CLIENTES y PRODUCTOS.");
 })();
+/* ===========================================================
+   🔄 SINCRONIZACIÓN EN TIEMPO REAL — CLIENTES Y PRODUCTOS + TOAST
+   =========================================================== */
+(function setupRealtimeSync() {
+  if (typeof supabase === "undefined") {
+    console.warn("⚠️ Supabase no está definido. Reintento en 2s...");
+    setTimeout(setupRealtimeSync, 2000);
+    return;
+  }
+
+  console.log("📡 Activando sincronización en tiempo real para CLIENTES y PRODUCTOS...");
+
+  // --- Función para mostrar notificación tipo toast ---
+  function showToast(msg, color = "#16a34a") {
+    const toast = document.createElement("div");
+    toast.textContent = msg;
+    toast.style.position = "fixed";
+    toast.style.bottom = "25px";
+    toast.style.left = "50%";
+    toast.style.transform = "translateX(-50%)";
+    toast.style.background = color;
+    toast.style.color = "#fff";
+    toast.style.padding = "10px 18px";
+    toast.style.borderRadius = "10px";
+    toast.style.fontSize = "15px";
+    toast.style.fontFamily = "Poppins, sans-serif";
+    toast.style.boxShadow = "0 4px 10px rgba(0,0,0,0.15)";
+    toast.style.zIndex = "9999";
+    toast.style.opacity = "0";
+    toast.style.transition = "opacity 0.3s ease";
+    document.body.appendChild(toast);
+    setTimeout(() => (toast.style.opacity = "1"), 50);
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      setTimeout(() => toast.remove(), 500);
+    }, 3000);
+  }
+
+  // --- CLIENTES ---
+  supabase
+    .channel('rt-clientes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, payload => {
+      console.log("👥 Actualización detectada en CLIENTES:", payload.eventType, payload.new?.nombre || payload.old?.nombre);
+
+      showToast(`👥 Clientes actualizados (${payload.eventType})`);
+
+      supabase.from('clientes').select('*').then(({ data, error }) => {
+        if (!error && Array.isArray(data)) {
+          localStorage.setItem('arslan_v104_clientes', JSON.stringify(data.map(r => ({
+            id: r.id || crypto.randomUUID(),
+            nombre: r.nombre || '',
+            dir: r.direccion || '',
+            nif: r.nif || '',
+            tel: r.telefono || '',
+            email: r.email || ''
+          }))));
+          console.log(`✅ Clientes sincronizados en tiempo real (${data.length} registros)`);
+          if (typeof renderAll === "function") renderAll();
+        }
+      });
+    })
+    .subscribe();
+
+  // --- PRODUCTOS ---
+  supabase
+    .channel('rt-productos')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, payload => {
+      console.log("🍏 Actualización detectada en PRODUCTOS:", payload.eventType, payload.new?.name || payload.old?.name);
+
+      showToast(`🍏 Productos actualizados (${payload.eventType})`);
+
+      supabase.from('productos').select('*').then(({ data, error }) => {
+        if (!error && Array.isArray(data)) {
+          localStorage.setItem('arslan_v104_productos', JSON.stringify(data.map(r => ({
+            name: r.name || '',
+            mode: r.mode || '',
+            boxkg: r.boxkg || null,
+            price: r.price || null,
+            origin: r.origin || ''
+          }))));
+          console.log(`✅ Productos sincronizados en tiempo real (${data.length} registros)`);
+          if (typeof renderAll === "function") renderAll();
+        }
+      });
+    })
+    .subscribe();
+
+  console.log("✨ Escuchando cambios en tiempo real de CLIENTES y PRODUCTOS.");
+})();
 
