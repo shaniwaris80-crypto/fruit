@@ -1546,4 +1546,55 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
     console.error("❌ Error durante carga inicial:", e.message);
   }
 })();
+/* ===========================================================
+   ☁️ AUTO-SYNC GARANTIZADO — Cargar desde Supabase SIEMPRE al abrir
+   =========================================================== */
+window.addEventListener("load", async () => {
+  console.log("🚀 Cargando datos iniciales desde Supabase al abrir la app...");
+
+  // Espera hasta que Supabase esté disponible (máximo 10 intentos)
+  let intentos = 0;
+  while (typeof supabase === "undefined" && intentos < 10) {
+    await new Promise(r => setTimeout(r, 800));
+    intentos++;
+  }
+
+  if (typeof supabase === "undefined") {
+    console.warn("⚠️ Supabase aún no está listo. Recarga la app.");
+    return;
+  }
+
+  try {
+    // --- CLIENTES ---
+    const { data: clientes, error: errC } = await supabase.from("clientes").select("*");
+    if (!errC && Array.isArray(clientes)) {
+      localStorage.setItem("arslan_v104_clientes", JSON.stringify(clientes));
+      console.log(`✅ CLIENTES cargados: ${clientes.length}`);
+    }
+
+    // --- PRODUCTOS ---
+    const { data: productos, error: errP } = await supabase.from("productos").select("*");
+    if (!errP && Array.isArray(productos)) {
+      localStorage.setItem("arslan_v104_productos", JSON.stringify(productos));
+      console.log(`🍏 PRODUCTOS cargados: ${productos.length}`);
+    }
+
+    // --- FACTURAS ---
+    const { data: facturas, error: errF } = await supabase.from("facturas").select("*");
+    if (!errF && Array.isArray(facturas)) {
+      localStorage.setItem("arslan_v104_facturas", JSON.stringify(facturas));
+      console.log(`🧾 FACTURAS cargadas: ${facturas.length}`);
+    }
+
+    console.log("☁️ Auto-sync inicial completado correctamente ✅");
+
+    // 🔄 Actualiza interfaz si renderAll está definido
+    if (typeof renderAll === "function") {
+      renderAll();
+      console.log("🖥️ Interfaz actualizada con datos remotos.");
+    }
+  } catch (e) {
+    console.error("❌ Error al sincronizar desde Supabase:", e.message);
+  }
+});
 
