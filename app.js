@@ -1621,5 +1621,27 @@ window.addEventListener("load", async () => {
     }
   }, 1000);
 })();
+/* ===========================================================
+   🧩 FIX DEFINITIVO — Reintenta renderAll cuando esté disponible
+   =========================================================== */
+(async function waitForRenderAll() {
+  console.log("🕓 Esperando a que renderAll esté disponible para refrescar interfaz...");
+
+  for (let i = 0; i < 30; i++) {
+    await new Promise(r => setTimeout(r, 1000));
+    if (typeof renderAll === "function") {
+      try {
+        console.log("✅ renderAll detectado. Actualizando interfaz con datos Supabase...");
+        renderAll();
+        console.log("🎉 Interfaz actualizada correctamente.");
+      } catch (e) {
+        console.error("❌ Error ejecutando renderAll:", e);
+      }
+      return;
+    }
+  }
+
+  console.warn("⚠️ No se detectó renderAll después de 30 segundos. Puede ser necesario recargar la app.");
+})();
 
 
