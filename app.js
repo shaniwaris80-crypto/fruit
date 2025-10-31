@@ -1061,8 +1061,13 @@ for (const tabla of ['clientes', 'facturas', 'productos', 'pricehist']) {
   }
 }
 
-    console.log('✨ Sincronización bidireccional completada');
-    renderAll();
+console.log('✨ Sincronización bidireccional completada');
+if (typeof renderAll === 'function') {
+  renderAll();
+} else {
+  console.warn('⚠️ renderAll aún no estaba definido al finalizar la sincronización.');
+}
+
   } else {
     console.log('📴 Sin conexión. Se usará solo la base local.');
   }
