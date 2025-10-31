@@ -1072,6 +1072,36 @@ function drawResumen(){ drawKPIs(); }
   const guardadoDark = localStorage.getItem('arslan_dark') === 'true';
   aplicarTema(guardadoTema);
   if(guardadoDark) toggleDark();
+  /* ===========================================================
+   🧠 FIX DEFINITIVO — Convertir IDs antiguos a UUID válidos
+   =========================================================== */
+(() => {
+  try {
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const clientesRaw = JSON.parse(localStorage.getItem("clientes") || "[]");
+    let changed = 0;
+
+    const repaired = clientesRaw.map(c => {
+      if (!c.id || !uuidRegex.test(c.id)) {
+        const oldId = c.id;
+        c.id = crypto.randomUUID();
+        changed++;
+        console.warn(`🔁 Cliente "${c.nombre}" (${oldId}) → nuevo UUID: ${c.id}`);
+      }
+      return c;
+    });
+
+    if (changed > 0) {
+      localStorage.setItem("clientes", JSON.stringify(repaired));
+      console.log(`✅ Reparados ${changed} clientes con IDs antiguos.`);
+    } else {
+      console.log("✅ Todos los clientes ya tenían UUID válidos.");
+    }
+  } catch (err) {
+    console.error("❌ Error al reparar IDs de clientes:", err);
+  }
+})();
+
    /* ===========================================================
    🔁 SINCRONIZACIÓN BIDIRECCIONAL CON SUPABASE
    - Descarga datos al abrir.
