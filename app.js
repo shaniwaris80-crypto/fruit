@@ -1,12 +1,15 @@
 /* ============================================================
-   🥝 ARSLAN PRO V10.4 KIWI — SUPABASE GLOBAL INICIALIZADO
+   🥝 ARSLAN PRO V10.4 KIWI — Conexión Supabase (modo clásico)
    ============================================================ */
+
 const SUPABASE_URL = "https://fjfbokkcdbmralwzsest.supabase.co";
 const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU";
 
+/* 🔗 Crear cliente Supabase global */
 window.supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-console.log("✅ Supabase conectado correctamente:", SUPABASE_URL);
+console.log("✅ Supabase conectado correctamente a:", SUPABASE_URL);
+
 
 
 console.log("✅ Supabase conectado correctamente:", SUPABASE_URL);
