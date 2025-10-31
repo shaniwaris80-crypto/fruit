@@ -1380,10 +1380,20 @@ async function saveProductoToSupabase(producto) {
   await uploadChange("productos", producto);
 }
 
-async function saveFacturaToSupabase(factura) {
-  if (!factura) return;
-  await uploadChange("facturas", factura);
+async function guardarFacturaEnSupabase(factura) {
+  try {
+    const { data, error } = await supabase
+      .from("facturas")
+      .insert([factura])
+      .select();
+    if (error) throw error;
+    console.log("💾 Factura guardada en Supabase:", data[0]);
+    return data[0];
+  } catch (e) {
+    console.error("❌ Error guardando factura:", e.message || e);
+  }
 }
+
 
 /* ============================================================
    🗑️ ELIMINACIÓN REMOTA
