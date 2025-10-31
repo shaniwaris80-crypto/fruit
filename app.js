@@ -1342,3 +1342,65 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
     console.error("❌ Error en fixPriceHistArr:", e.message);
   }
 })();
+/* ===========================================================
+   🔄 SINCRONIZACIÓN EN TIEMPO REAL — CLIENTES Y PRODUCTOS
+   =========================================================== */
+(function setupRealtimeSync() {
+  if (typeof supabase === "undefined") {
+    console.warn("⚠️ Supabase no está definido. Reintento en 2s...");
+    setTimeout(setupRealtimeSync, 2000);
+    return;
+  }
+
+  console.log("📡 Activando sincronización en tiempo real para clientes y productos...");
+
+  // --- CLIENTES ---
+  supabase
+    .channel('rt-clientes')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, payload => {
+      console.log("👥 Actualización detectada en CLIENTES:", payload.eventType, payload.new?.nombre || payload.old?.nombre);
+
+      // 🔄 Descargar todo nuevamente y actualizar interfaz
+      supabase.from('clientes').select('*').then(({ data, error }) => {
+        if (!error && Array.isArray(data)) {
+          localStorage.setItem('arslan_v104_clientes', JSON.stringify(data.map(r => ({
+            id: r.id || crypto.randomUUID(),
+            nombre: r.nombre || '',
+            dir: r.direccion || '',
+            nif: r.nif || '',
+            tel: r.telefono || '',
+            email: r.email || ''
+          }))));
+          console.log(`✅ Clientes sincronizados en tiempo real (${data.length} registros)`);
+          if (typeof renderAll === "function") renderAll();
+        }
+      });
+    })
+    .subscribe();
+
+  // --- PRODUCTOS ---
+  supabase
+    .channel('rt-productos')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, payload => {
+      console.log("🍏 Actualización detectada en PRODUCTOS:", payload.eventType, payload.new?.name || payload.old?.name);
+
+      // 🔄 Descargar todo nuevamente y actualizar interfaz
+      supabase.from('productos').select('*').then(({ data, error }) => {
+        if (!error && Array.isArray(data)) {
+          localStorage.setItem('arslan_v104_productos', JSON.stringify(data.map(r => ({
+            name: r.name || '',
+            mode: r.mode || '',
+            boxkg: r.boxkg || null,
+            price: r.price || null,
+            origin: r.origin || ''
+          }))));
+          console.log(`✅ Productos sincronizados en tiempo real (${data.length} registros)`);
+          if (typeof renderAll === "function") renderAll();
+        }
+      });
+    })
+    .subscribe();
+
+  console.log("✨ Escuchando cambios en tiempo real de CLIENTES y PRODUCTOS.");
+})();
+
