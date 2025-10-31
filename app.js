@@ -1307,3 +1307,38 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
     setTimeout(waitRenderAll, 1500);
   }
 })();
+/* ===========================================================
+   🩹 FIX DEFINITIVO — arr.map is not a function
+   Limpia y normaliza todos los registros locales y en nube
+   =========================================================== */
+(async function fixPriceHistArr() {
+  console.log("🧠 Revisando coherencia de priceHist...");
+  try {
+    // --- Reparar local ---
+    const key = 'arslan_v104_pricehist';
+    const data = JSON.parse(localStorage.getItem(key) || '{}');
+    for (const k in data) {
+      if (!Array.isArray(data[k])) data[k] = [];
+    }
+    localStorage.setItem(key, JSON.stringify(data));
+    console.log("✅ priceHist local reparado");
+
+    // --- Reparar remoto ---
+    if (typeof supabase !== "undefined") {
+      const { data: cloud, error } = await supabase.from('pricehist').select('*');
+      if (!error && Array.isArray(cloud)) {
+        const clean = cloud.filter(r => typeof r.precio === 'number' && typeof r.producto === 'string');
+        if (clean.length !== cloud.length) {
+          console.warn(`⚠️ Eliminando ${cloud.length - clean.length} registros inválidos en nube...`);
+          const nombresInvalidos = cloud
+            .filter(r => typeof r.precio !== 'number' || !r.producto)
+            .map(r => r.producto || '(sin nombre)');
+          console.warn("⚠️ Productos afectados:", nombresInvalidos);
+        }
+      }
+    }
+    console.log("✨ FIX de priceHist completado sin errores.");
+  } catch (e) {
+    console.error("❌ Error en fixPriceHistArr:", e.message);
+  }
+})();
