@@ -126,13 +126,15 @@
     saveLS(K_PRODUCTOS, productos);
   }
 
-  function setProviderDefaultsIfEmpty(){
-    if (!$("#provNombre").value) $("#provNombre").value = "Mohammad Arslan Waris";
-    if (!$("#provNif").value)    $("#provNif").value    = "X6389988J";
-    if (!$("#provDir").value)    $("#provDir").value    = "Calle San Pablo 17, 09003 Burgos";
-    if (!$("#provTel").value)    $("#provTel").value    = "631 667 893";
-    if (!$("#provEmail").value)  $("#provEmail").value  = "shaniwaris80@gmail.com";
-  }
+ function setProviderDefaultsIfEmpty(){
+  const n = $("#provNombre"), i = $("#provNif"), d = $("#provDir"), t = $("#provTel"), e = $("#provEmail");
+  if (n && !n.value) n.value = "Mohammad Arslan Waris";
+  if (i && !i.value) i.value = "X6389988J";
+  if (d && !d.value) d.value = "Calle San Pablo 17, 09003 Burgos";
+  if (t && !t.value) t.value = "631 667 893";
+  if (e && !e.value) e.value = "shaniwaris80@gmail.com";
+}
+
 
   /* ============ HISTORIAL DE PRECIOS ============ */
   function lastPrice(name) { const arr = priceHist[name]; return arr?.length ? arr[0].price : null; }
