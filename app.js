@@ -2207,6 +2207,44 @@ if (typeof window.renderAll !== "function") {
     console.error("❌ Error en limpieza de clientes no UUID:", e);
   }
 })();
+  /* ===========================================================
+   🧩 PURGA DEFINITIVA DE CLIENTES NO UUID
+   =========================================================== */
+(async () => {
+  try {
+    const isUUID = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+    const makeUUID = () => crypto.randomUUID();
+    let fixedCount = 0;
+
+    if (typeof clientes !== "undefined" && Array.isArray(clientes)) {
+      // 🔍 Detectar todos los IDs inválidos
+      const invalids = clientes.filter(c => !isUUID(c.id));
+      if (invalids.length > 0) {
+        console.warn(`🧹 Eliminando ${invalids.length} clientes con ID inválido...`);
+        // Eliminar los inválidos y regenerarlos con UUID nuevo
+        const repaired = invalids.map(c => ({
+          ...c,
+          id: makeUUID()
+        }));
+        const updated = [...clientes.filter(c => isUUID(c.id)), ...repaired];
+        save("clientes", updated);
+        fixedCount = invalids.length;
+      }
+    }
+
+    if (fixedCount > 0) {
+      console.log(`✅ ${fixedCount} clientes purgados y regenerados con UUID.`);
+      if (typeof syncBidireccional === "function") {
+        await syncBidireccional();
+      }
+    } else {
+      console.log("✨ No se detectaron clientes inválidos.");
+    }
+  } catch (err) {
+    console.error("❌ Error en PURGA DEFINITIVA DE CLIENTES:", err);
+  }
+})();
+
 
 })();
 
