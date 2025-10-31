@@ -492,89 +492,53 @@ function genNumFactura() {
 // ===========================================================
 // 💾 Guardar facturas (local + Supabase)
 // ===========================================================
+// ===========================================================
+// 💾 Guardar facturas (local + Supabase)
+// ===========================================================
 async function saveFacturas() {
   try {
     // 1️⃣ Guardado local
     save(K_FACTURAS, facturas);
     console.log("💾 Facturas guardadas localmente:", facturas.length);
 
-    // 2️⃣ Guardado remoto (Supabase)
-    if (typeof supabase !== 'undefined' && facturas.length > 0) {
-      const { data, error } = await supabase
-        .from('facturas')
-        .upsert(facturas.map(f => ({
-          id: f.id,
-          numero: f.numero,
-          cliente: f.cliente,
-          nif: f.nif,
-          direccion: f.direccion || '',
-          telefono: f.telefono || '',
-          email: f.email || '',
-          fecha: f.fecha || new Date().toISOString(),
-          total: f.total || 0,
-          estado: f.estado || 'Pendiente',
-          updated_at: new Date().toISOString()
-        })));
-
-      if (error) {
-    if (error) {
-  console.error("❌ Error al subir la factura:", error.message || error);
-} else {
-  console.log("✅ Factura subida correctamente:", data);
-}
-
-    } else {
-      console.warn("ℹ️ No hay facturas que subir o Supabase no está inicializado.");
-    }
-  } catch (e) {
-    console.error("❌ Error en saveFacturas:", e);
-  }
-}
-
-/* ===========================================================
-   ☁️ SUBIR FACTURA NUEVA A SUPABASE TRAS GUARDARLA
-   =========================================================== */
-(async () => {
-  try {
-    if (typeof supabase === "undefined") {
+    // 2️⃣ Subida a Supabase (solo la última factura guardada)
+    if (!supabase) {
       console.warn("⚠️ Supabase no está inicializado todavía.");
       return;
     }
 
-    // 🧾 Obtenemos la última factura recién guardada
-    const facturaActual = facturas?.[0];
-    if (!facturaActual) {
-      console.warn("⚠️ No hay factura para subir aún.");
+    const ultimaFactura = facturas[facturas.length - 1];
+    if (!ultimaFactura) {
+      console.warn("⚠️ No hay factura disponible para subir.");
       return;
     }
 
     const { data, error } = await supabase
       .from('facturas')
       .upsert([{
-        id: facturaActual.id || crypto.randomUUID(),
-        numero: facturaActual.numero,
-        cliente: facturaActual.cliente,
-        nif: facturaActual.nif,
-        direccion: facturaActual.direccion,
-        telefono: facturaActual.telefono,
-        email: facturaActual.email,
-        fecha: facturaActual.fecha,
-        total: facturaActual.total,
-        estado: facturaActual.estado || 'Pendiente',
+        id: ultimaFactura.id || crypto.randomUUID(),
+        numero: ultimaFactura.numero,
+        cliente: ultimaFactura.cliente,
+        nif: ultimaFactura.nif,
+        direccion: ultimaFactura.direccion || '',
+        telefono: ultimaFactura.telefono || '',
+        email: ultimaFactura.email || '',
+        fecha: ultimaFactura.fecha || new Date().toISOString(),
+        total: ultimaFactura.total || 0,
+        estado: ultimaFactura.estado || 'Pendiente',
         updated_at: new Date().toISOString()
       }]);
 
     if (error) {
-      console.warn("⚠️ Error subiendo factura:", error.message || error);
+      console.error("❌ Error al subir la factura:", error.message || error);
     } else {
       console.log("✅ Factura subida correctamente:", data);
     }
 
   } catch (e) {
-    console.error("❌ Error al subir la factura:", e.message || e);
+    console.error("❌ Error en saveFacturas:", e.message || e);
   }
-})();
-
+}
 
 
 $('#btnGuardar')?.addEventListener('click', ()=>{
