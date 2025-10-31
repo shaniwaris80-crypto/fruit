@@ -1715,6 +1715,21 @@ window.addEventListener('online', () => {
   if (typeof renderAll === "function") renderAll();
 });
 /* ===========================================================
+   🧱 FIX ARR.MAP — Protección de arrays en sincronización
+   =========================================================== */
+const safeMap = arr => (Array.isArray(arr) ? arr : Object.values(arr || {}));
+const oldMap = Array.prototype.map;
+Array.prototype.map = function(fn, thisArg){
+  if (typeof fn !== "function") return oldMap.call([], fn, thisArg);
+  try {
+    return oldMap.call(this, fn, thisArg);
+  } catch(e) {
+    console.warn("⚠️ safeMap aplicado:", e);
+    return safeMap(this).map(fn, thisArg);
+  }
+};
+
+/* ===========================================================
    💚 FIX FINAL — Reintento persistente de renderAll
    =========================================================== */
 (function ensureRenderAllLoaded() {
