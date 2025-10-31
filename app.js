@@ -492,9 +492,6 @@ function genNumFactura() {
 // ===========================================================
 // 💾 Guardar facturas (local + Supabase)
 // ===========================================================
-// ===========================================================
-// 💾 Guardar facturas (local + Supabase)
-// ===========================================================
 async function saveFacturas() {
   try {
     // 1️⃣ Guardado local
@@ -507,24 +504,29 @@ async function saveFacturas() {
       return;
     }
 
-    const ultimaFactura = facturas[facturas.length - 1];
+    // 🧾 Última factura guardada (formato local)
+    const ultimaFactura = facturas[0]; // usas unshift() → primer elemento
     if (!ultimaFactura) {
       console.warn("⚠️ No hay factura disponible para subir.");
       return;
     }
+
+    // 🧩 Extraer datos planos (cliente/proveedor)
+    const cliente = ultimaFactura.cliente || {};
+    const proveedor = ultimaFactura.proveedor || {};
 
     const { data, error } = await supabase
       .from('facturas')
       .upsert([{
         id: ultimaFactura.id || crypto.randomUUID(),
         numero: ultimaFactura.numero,
-        cliente: ultimaFactura.cliente,
-        nif: ultimaFactura.nif,
-        direccion: ultimaFactura.direccion || '',
-        telefono: ultimaFactura.telefono || '',
-        email: ultimaFactura.email || '',
+        cliente: cliente.nombre || '',
+        nif: cliente.nif || '',
+        direccion: cliente.dir || '',
+        telefono: cliente.tel || '',
+        email: cliente.email || '',
         fecha: ultimaFactura.fecha || new Date().toISOString(),
-        total: ultimaFactura.total || 0,
+        total: ultimaFactura.totals?.total || 0,
         estado: ultimaFactura.estado || 'Pendiente',
         updated_at: new Date().toISOString()
       }]);
@@ -532,7 +534,7 @@ async function saveFacturas() {
     if (error) {
       console.error("❌ Error al subir la factura:", error.message || error);
     } else {
-      console.log("✅ Factura subida correctamente:", data);
+      console.log("✅ Factura subida correctamente a Supabase:", data);
     }
 
   } catch (e) {
