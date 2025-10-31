@@ -378,6 +378,25 @@ function renderPagosTemp(){
   });
   list.querySelectorAll('button').forEach(b=>{
     b.addEventListener('click', ()=>{ pagosTemp.splice(+b.dataset.i,1); renderPagosTemp(); recalc(); });
+       renderPagosTemp();
+  renderAll(); 
+  recalc();
+
+  // ===========================================================
+  // 🌍 Exportar funciones y constantes al ámbito global
+  // ===========================================================
+  window.load = load;
+  window.save = save;
+  window.uid = uid;
+  window.renderAll = renderAll;
+
+  window.K_CLIENTES = K_CLIENTES;
+  window.K_PRODUCTOS = K_PRODUCTOS;
+  window.K_FACTURAS = K_FACTURAS;
+  window.K_PRICEHIST = K_PRICEHIST;
+
+})(); // 👈 deja este paréntesis y punto y coma exactamente igual
+
   });
 }
 $('#btnAddPago')?.addEventListener('click', ()=>{
