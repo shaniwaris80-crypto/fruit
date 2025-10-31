@@ -2107,5 +2107,71 @@ if (typeof window.renderAll !== "function") {
       catch(e){ console.error("⚠️ Error al refrescar:", e); }
     }
   }, 30000);
+  /* ===========================================================
+   🧩 FIX UUID AUTOMÁTICO PARA CLIENTES, FACTURAS Y PENDIENTES
+   =========================================================== */
+(async () => {
+  try {
+    const isUUID = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
+    const fixId = () => crypto.randomUUID();
+
+    let fixed = 0;
+
+    // 🧾 CLIENTES
+    if (typeof clientes !== "undefined" && Array.isArray(clientes)) {
+      clientes.forEach(c => {
+        if (!isUUID(c.id)) {
+          console.warn("🩹 Reparando ID cliente no válido:", c.id);
+          c.id = fixId();
+          fixed++;
+        }
+      });
+      save("clientes", clientes);
+    }
+
+    // 🧾 FACTURAS
+    if (typeof facturas !== "undefined" && Array.isArray(facturas)) {
+      facturas.forEach(f => {
+        if (!isUUID(f.id)) {
+          console.warn("🩹 Reparando ID factura no válido:", f.id);
+          f.id = fixId();
+          fixed++;
+        }
+        if (f.cliente_id && !isUUID(f.cliente_id)) {
+          console.warn("🩹 Reparando cliente_id de factura:", f.cliente_id);
+          const clienteRelacionado = clientes.find(c => c.nombre === f.cliente);
+          f.cliente_id = clienteRelacionado ? clienteRelacionado.id : fixId();
+          fixed++;
+        }
+      });
+      save("facturas", facturas);
+    }
+
+    // 🧾 PENDIENTES
+    if (typeof pendientes !== "undefined" && Array.isArray(pendientes)) {
+      pendientes.forEach(p => {
+        if (p.cliente_id && !isUUID(p.cliente_id)) {
+          console.warn("🩹 Reparando cliente_id de pendiente:", p.cliente_id);
+          const clienteRelacionado = clientes.find(c => c.nombre === p.cliente);
+          p.cliente_id = clienteRelacionado ? clienteRelacionado.id : fixId();
+          fixed++;
+        }
+      });
+      save("pendientes", pendientes);
+    }
+
+    if (fixed > 0) {
+      console.log(`✅ Reparados ${fixed} IDs inválidos. Reintentando sincronización...`);
+      if (typeof syncBidireccional === "function") {
+        await syncBidireccional();
+      }
+    } else {
+      console.log("✨ Todos los IDs locales ya son válidos UUID.");
+    }
+  } catch (e) {
+    console.error("❌ Error en FIX UUID automático:", e);
+  }
+})();
+
 })();
 
