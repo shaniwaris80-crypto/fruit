@@ -984,18 +984,18 @@ const TABLAS = {
     mapOut: c => ({
       id: c.id,
       nombre: c.nombre,
-      direccion: c.dir,
+      direccion: c.direccion, // ✅ corregido
       nif: c.nif,
-      telefono: c.tel,
-      email: c.email
+      telefono: c.telefono,   // ✅ corregido
+      email: c.email          // ✅ corregido
     }), 
     mapIn: r => ({
       id: r.id || uid(),
       nombre: r.nombre || '',
-      dir: r.direccion || '',
+      direccion: r.direccion || '', // ✅ corregido
       nif: r.nif || '',
-      tel: r.telefono || '',
-      email: r.email || ''
+      telefono: r.telefono || '',   // ✅ corregido
+      email: r.email || ''          // ✅ corregido
     })
   },
 
@@ -1026,9 +1026,9 @@ const TABLAS = {
       numero: f.numero,
       cliente: f.cliente,
       nif: f.nif,
-      direccion: f.dir,
-      telefono: f.tel,
-      email: f.email,
+      direccion: f.direccion, // ✅ corregido
+      telefono: f.telefono,   // ✅ corregido
+      email: f.email,         // ✅ corregido
       fecha: f.fecha,
       total: f.total,
       estado: f.estado
@@ -1038,15 +1038,16 @@ const TABLAS = {
       numero: r.numero || '',
       cliente: r.cliente || '',
       nif: r.nif || '',
-      dir: r.direccion || '',
-      tel: r.telefono || '',
-      email: r.email || '',
+      direccion: r.direccion || '', // ✅ corregido
+      telefono: r.telefono || '',   // ✅ corregido
+      email: r.email || '',         // ✅ corregido
       fecha: r.fecha || new Date().toISOString(),
       total: r.total || 0,
       estado: r.estado || 'Pendiente'
     })
   }
 };
+
 
 
 
