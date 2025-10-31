@@ -21,19 +21,19 @@
   <script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 
   <!-- ⚙️ Registro del Service Worker -->
-  <script>
+<script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
       try {
-        navigator.serviceWorker.register('./sw.js');
-
+        const reg = await navigator.serviceWorker.register('/fruit/sw.js');  <!-- Corrección aquí -->
         console.log('✅ Service Worker registrado en:', reg.scope);
       } catch (err) {
         console.warn('⚠️ Error registrando Service Worker:', err);
       }
     });
   }
-  </script>
+</script>
+
 </head>
 
 <body>
