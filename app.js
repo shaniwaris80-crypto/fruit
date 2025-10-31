@@ -1039,6 +1039,28 @@ function drawResumen(){ drawKPIs(); }
     for (const [nombre, cfg] of Object.entries(TABLAS)) {
       await syncTable(nombre, cfg);
     }
+    // --- DESCARGA GLOBAL DESDE SUPABASE A LOCAL ---
+for (const tabla of ['clientes', 'facturas', 'productos', 'pricehist']) {
+  console.log(`⬇️ Descargando datos actualizados de ${tabla}...`);
+  const { data: dataRemota, error: errRemoto } = await supabase.from(tabla).select('*');
+  if (errRemoto) {
+    console.warn(`⚠️ Error al descargar ${tabla}:`, errRemoto.message);
+    continue;
+  }
+  if (dataRemota && dataRemota.length) {
+    localStorage.setItem(
+      {
+        clientes: K_CLIENTES,
+        productos: K_PRODUCTOS,
+        facturas: K_FACTURAS,
+        pricehist: K_PRICEHIST
+      }[tabla],
+      JSON.stringify(dataRemota)
+    );
+    console.log(`✅ ${tabla} descargada (${dataRemota.length} registros)`);
+  }
+}
+
     console.log('✨ Sincronización bidireccional completada');
     renderAll();
   } else {
