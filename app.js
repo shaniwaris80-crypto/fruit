@@ -214,6 +214,19 @@ function renderClientesLista(){
       }
     });
   });
+   // ===========================================================
+// 🌍 Exportar funciones y constantes al ámbito global
+// ===========================================================
+window.load = load;
+window.save = save;
+window.uid = uid;
+window.renderAll = renderAll;
+
+window.K_CLIENTES = K_CLIENTES;
+window.K_PRODUCTOS = K_PRODUCTOS;
+window.K_FACTURAS = K_FACTURAS;
+window.K_PRICEHIST = K_PRICEHIST;
+
 }
 function fillClientFields(c){
   $('#cliNombre').value=c.nombre||''; $('#cliNif').value=c.nif||''; $('#cliDir').value=c.dir||''; $('#cliTel').value=c.tel||''; $('#cliEmail').value=c.email||'';
