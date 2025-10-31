@@ -1714,6 +1714,28 @@ window.addEventListener('online', () => {
   console.log("🌐 Conexión restaurada. Forzando renderAll...");
   if (typeof renderAll === "function") renderAll();
 });
+/* ===========================================================
+   💚 FIX FINAL — Reintento persistente de renderAll
+   =========================================================== */
+(function ensureRenderAllLoaded() {
+  console.log("🧩 Monitorizando aparición de renderAll...");
+  let attempts = 0;
+  const timer = setInterval(() => {
+    attempts++;
+    if (typeof renderAll === "function") {
+      console.log("✅ renderAll detectado tras", attempts, "intentos. Refrescando interfaz...");
+      try {
+        renderAll();
+        console.log("🎉 Interfaz actualizada correctamente con datos sincronizados.");
+      } catch (err) {
+        console.error("❌ Error al ejecutar renderAll:", err);
+      }
+      clearInterval(timer);
+    } else if (attempts % 10 === 0) {
+      console.warn("⌛ renderAll aún no disponible tras", attempts, "segundos...");
+    }
+  }, 1000);
+})();
 
 
 
