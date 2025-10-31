@@ -1695,5 +1695,25 @@ window.addEventListener("load", async () => {
 
   console.log("✨ Realtime activado correctamente para CLIENTES, PRODUCTOS y FACTURAS.");
 })();
+/* ===========================================================
+   🧠 REFRESCO FORZADO — Garantiza renderAll en cada apertura
+   =========================================================== */
+window.addEventListener('load', () => {
+  setTimeout(() => {
+    if (typeof renderAll === "function") {
+      console.log("🔄 Refrescando interfaz tras carga completa...");
+      renderAll();
+    } else {
+      console.warn("⚠️ renderAll aún no disponible tras load, se reintentará...");
+      setTimeout(() => { if (typeof renderAll === "function") renderAll(); }, 3000);
+    }
+  }, 2000);
+});
+
+window.addEventListener('online', () => {
+  console.log("🌐 Conexión restaurada. Forzando renderAll...");
+  if (typeof renderAll === "function") renderAll();
+});
+
 
 
