@@ -1072,35 +1072,109 @@ function drawResumen(){ drawKPIs(); }
   const guardadoDark = localStorage.getItem('arslan_dark') === 'true';
   aplicarTema(guardadoTema);
   if(guardadoDark) toggleDark();
-  /* ===========================================================
-   🧠 FIX DEFINITIVO — Convertir IDs antiguos a UUID válidos
+/* ===========================================================
+   🧾 FUNCIÓN GLOBAL: renderAll()
+   - Refresca toda la interfaz principal
+   - Rellena listas, selects, y vistas con datos locales
    =========================================================== */
-(() => {
+function renderAll() {
   try {
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const clientesRaw = JSON.parse(localStorage.getItem("clientes") || "[]");
-    let changed = 0;
+    console.log("🔄 Ejecutando renderAll universal...");
 
-    const repaired = clientesRaw.map(c => {
-      if (!c.id || !uuidRegex.test(c.id)) {
-        const oldId = c.id;
-        c.id = crypto.randomUUID();
-        changed++;
-        console.warn(`🔁 Cliente "${c.nombre}" (${oldId}) → nuevo UUID: ${c.id}`);
-      }
-      return c;
-    });
-
-    if (changed > 0) {
-      localStorage.setItem("clientes", JSON.stringify(repaired));
-      console.log(`✅ Reparados ${changed} clientes con IDs antiguos.`);
-    } else {
-      console.log("✅ Todos los clientes ya tenían UUID válidos.");
+    /* ---------- CLIENTES ---------- */
+    const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
+    const contClientes = document.querySelector("#clientes-lista");
+    if (contClientes) {
+      contClientes.innerHTML = clientes.length
+        ? clientes
+            .map(
+              (c) => `
+              <div class="cliente-item">
+                <strong>${c.nombre}</strong><br>
+                <small>${c.nif || ""}</small><br>
+                <small>${c.direccion || ""}</small><br>
+                <small>${c.telefono || ""}</small><br>
+                <small>${c.email || ""}</small>
+              </div>`
+            )
+            .join("")
+        : "<p class='muted'>Sin clientes registrados</p>";
     }
+
+    /* ---------- SELECT CLIENTES (para facturas) ---------- */
+    if (typeof renderClientesSelect === "function") {
+      renderClientesSelect();
+    } else {
+      console.warn("⚠️ renderClientesSelect no definida, usando fallback.");
+      const select = document.querySelector("#factura-cliente");
+      if (select) {
+        select.innerHTML = clientes
+          .map((c) => `<option value="${c.id}">${c.nombre}</option>`)
+          .join("");
+      }
+    }
+
+    /* ---------- PRODUCTOS ---------- */
+    const productos = JSON.parse(localStorage.getItem("productos") || "[]");
+    const contProductos = document.querySelector("#productos-lista");
+    if (contProductos) {
+      contProductos.innerHTML = productos.length
+        ? productos
+            .map(
+              (p) => `
+              <div class="producto-item">
+                <strong>${p.nombre}</strong><br>
+                <small>${p.mode || "—"} | ${p.price || 0} €/u</small>
+              </div>`
+            )
+            .join("")
+        : "<p class='muted'>Sin productos registrados</p>";
+    }
+
+    /* ---------- FACTURAS ---------- */
+    const facturas = JSON.parse(localStorage.getItem("facturas") || "[]");
+    const contFacturas = document.querySelector("#facturas-lista");
+    if (contFacturas) {
+      contFacturas.innerHTML = facturas.length
+        ? facturas
+            .map(
+              (f) => `
+              <div class="factura-item">
+                <strong>${f.numero}</strong><br>
+                <small>Cliente: ${f.clienteNombre || "—"}</small><br>
+                <small>Total: ${(f.totalConIVA || f.total || 0).toFixed(2)} €</small><br>
+                <small>Fecha: ${new Date(f.ts).toLocaleDateString()}</small>
+              </div>`
+            )
+            .join("")
+        : "<p class='muted'>Sin facturas generadas</p>";
+    }
+
+    /* ---------- PRICE HISTORIAL ---------- */
+    const priceHist = JSON.parse(localStorage.getItem("priceHist") || "{}");
+    const contHist = document.querySelector("#priceHist-lista");
+    if (contHist) {
+      const entries = Object.entries(priceHist);
+      contHist.innerHTML = entries.length
+        ? entries
+            .map(([prod, hist]) => {
+              const last = hist[hist.length - 1];
+              return `
+                <div class="historial-item">
+                  <strong>${prod}</strong><br>
+                  <small>Último precio: ${last?.price || 0} €</small>
+                </div>`;
+            })
+            .join("")
+        : "<p class='muted'>Sin historial de precios</p>";
+    }
+
+    console.log("✅ renderAll completado correctamente.");
   } catch (err) {
-    console.error("❌ Error al reparar IDs de clientes:", err);
+    console.error("❌ Error en renderAll:", err);
   }
-})();
+}
+
 
    /* ===========================================================
    🔁 SINCRONIZACIÓN BIDIRECCIONAL CON SUPABASE
