@@ -1597,4 +1597,29 @@ window.addEventListener("load", async () => {
     console.error("❌ Error al sincronizar desde Supabase:", e.message);
   }
 });
+/* ===========================================================
+   🔁 FIX FINAL — Ejecuta renderAll() cuando esté listo
+   =========================================================== */
+(function ensureRenderAll() {
+  console.log("🧩 Esperando a que renderAll esté disponible...");
+  let tries = 0;
+
+  const interval = setInterval(() => {
+    tries++;
+    if (typeof renderAll === "function") {
+      clearInterval(interval);
+      console.log("✅ renderAll detectado, actualizando interfaz...");
+      try {
+        renderAll();
+        console.log("🖥️ Interfaz sincronizada correctamente con Supabase.");
+      } catch (e) {
+        console.error("❌ Error ejecutando renderAll:", e);
+      }
+    } else if (tries > 20) {
+      clearInterval(interval);
+      console.warn("⚠️ renderAll nunca estuvo disponible tras 20 intentos.");
+    }
+  }, 1000);
+})();
+
 
