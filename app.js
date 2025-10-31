@@ -1298,15 +1298,12 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
     }catch(e){ console.warn("⚠️ priceHist corrupto, se omitió reparación."); }
   }
 })();
-/* 🕓 FIX: Esperar a que renderAll exista antes de refrescar */
+/* 🕓 FIX: Esperar a que renderAll exista antes de refrescar (versión silenciosa) */
 (function waitRenderAll(){
   if(typeof renderAll === "function"){
-    console.log("✅ renderAll listo — refrescando vista.");
+    console.log("✅ renderAll listo — refrescando vista una sola vez.");
     renderAll();
   } else {
-    console.log("⏳ Esperando a que renderAll esté disponible...");
     setTimeout(waitRenderAll, 1500);
   }
 })();
-
-
