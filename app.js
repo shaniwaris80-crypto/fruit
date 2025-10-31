@@ -1,6 +1,7 @@
-
+// --- PocketBase INIT ---
 const pb = new PocketBase('https://step-powerful.pockethost.io');
-console.log('✅ PocketBase inicializado:', pb);
+console.log('✅ PocketBase inicializado correctamente');
+
 
 
 /* =======================================================
