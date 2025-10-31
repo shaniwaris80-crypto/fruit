@@ -978,22 +978,25 @@ function drawResumen(){ drawKPIs(); }
 
   // ✅ Tablas que queremos sincronizar
   const TABLAS = {
-    clientes: { key: K_CLIENTES, mapOut: c => ({
-      id: c.id, nombre: c.nombre, direccion: c.dir, nif: c.nif, telefono: c.tel
-    }), mapIn: r => ({
-      id: r.id || uid(), nombre: r.nombre || '', dir: r.direccion || '',
-      nif: r.nif || '', tel: r.telefono || '', email: r.email || ''
-    }) },
-    facturas: { key: K_FACTURAS, mapOut: f => ({
-      numero: f.numero, fecha: f.fecha, cliente: f.cliente?.nombre,
-      total: f.totals?.total || 0, estado: f.estado
-    }), mapIn: r => r },
-    productos: { key: K_PRODUCTOS, mapOut: p => ({
-      name: p.name, mode: p.mode, boxkg: p.boxkg, price: p.price, origin: p.origin
-    }), mapIn: r => ({
-      name: r.name, mode: r.mode, boxkg: r.boxkg, price: r.price, origin: r.origin
-    }) }
-  };
+   clientes: { 
+  key: K_CLIENTES, 
+  mapOut: c => ({
+    id: c.id,
+    nombre: c.nombre,
+    direccion: c.dir,
+    nif: c.nif,
+    telefono: c.tel,
+    email: c.email
+  }), 
+  mapIn: r => ({
+    id: r.id || uid(),
+    nombre: r.nombre || '',
+    dir: r.direccion || '',
+    nif: r.nif || '',
+    tel: r.telefono || '',
+    email: r.email || ''
+  }) 
+},
 
   // 🔁 Función para sincronizar una tabla
   async function syncTable(nombre, cfg) {
