@@ -1212,6 +1212,20 @@ Array.prototype.map = function(fn, thisArg) {
     return safeArray(this).map(fn, thisArg);
   }
 };
+/* ===========================================================
+   🩹 FIX ARR.MAP — Protección universal de arrays
+   =========================================================== */
+if (!Array.prototype.safeMap) {
+  Array.prototype.safeMap = function (fn, thisArg) {
+    try {
+      if (!Array.isArray(this)) return [];
+      return this.map(fn, thisArg);
+    } catch (e) {
+      console.warn("⚠️ safeMap aplicado:", e);
+      return [];
+    }
+  };
+}
 
 /* ===========================================================
    📈 SINCRONIZACIÓN EXTENDIDA — priceHist, KPIs, Pendientes
