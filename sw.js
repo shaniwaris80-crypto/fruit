@@ -1,47 +1,56 @@
-// This is the "Offline page" service worker
+// Nombre del caché (puedes cambiar la versión si haces cambios grandes)
+const CACHE_NAME = 'arslan-fruit-v1';
 
-importScripts('https://storage.googleapis.com/workbox-cdn/releases/5.1.2/workbox-sw.js');
+// Archivos que se guardarán para funcionar sin conexión
+// 👇 Usamos rutas relativas (sin "/" al inicio) para que GitHub Pages no falle
+const CACHE_ASSETS = [
+  './',
+  './index.html',
+  './style.css',
+  './app.js',
+  './supabaseClient.js' // opcional, solo si existe en tu carpeta
+];
 
-const CACHE = "pwabuilder-page";
-
-// TODO: replace the following with the correct offline fallback page i.e.: const offlineFallbackPage = "offline.html";
-const offlineFallbackPage = "ToDo-replace-this-name.html";
-
-self.addEventListener("message", (event) => {
-  if (event.data && event.data.type === "SKIP_WAITING") {
-    self.skipWaiting();
-  }
-});
-
-self.addEventListener('install', async (event) => {
+// Cuando se instala el Service Worker
+self.addEventListener('install', event => {
+  console.log('Service Worker instalado');
   event.waitUntil(
-    caches.open(CACHE)
-      .then((cache) => cache.add(offlineFallbackPage))
+    caches.open(CACHE_NAME)
+      .then(cache => {
+        return cache.addAll(CACHE_ASSETS);
+      })
+      .catch(err => console.warn('⚠️ Error guardando en caché:', err))
   );
 });
 
-if (workbox.navigationPreload.isSupported()) {
-  workbox.navigationPreload.enable();
-}
-
-self.addEventListener('fetch', (event) => {
-  if (event.request.mode === 'navigate') {
-    event.respondWith((async () => {
-      try {
-        const preloadResp = await event.preloadResponse;
-
-        if (preloadResp) {
-          return preloadResp;
-        }
-
-        const networkResp = await fetch(event.request);
-        return networkResp;
-      } catch (error) {
-
-        const cache = await caches.open(CACHE);
-        const cachedResp = await cache.match(offlineFallbackPage);
-        return cachedResp;
-      }
-    })());
-  }
+// Cuando se activa el nuevo SW (limpia versiones viejas)
+self.addEventListener('activate', event => {
+  console.log('Service Worker activado');
+  event.waitUntil(
+    caches.keys().then(keys => {
+      return Promise.all(
+        keys.filter(k => k !== CACHE_NAME).map(k => caches.delete(k))
+      );
+    })
+  );
 });
+
+// Intercepta las peticiones y sirve desde caché si está disponible
+self.addEventListener('fetch', event => {
+  event.respondWith(
+    caches.match(event.request).then(response => {
+      // Si está en caché → úsalo
+      if (response) return response;
+      // Si no, pide a la red y guarda una copia
+      return fetch(event.request).then(fetchRes => {
+        return caches.open(CACHE_NAME).then(cache => {
+          cache.put(event.request, fetchRes.clone());
+          return fetchRes;
+        });
+      }).catch(err => {
+        console.warn('❌ Error en fetch:', err);
+      });
+    })
+  );
+});
+
