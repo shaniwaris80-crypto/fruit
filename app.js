@@ -977,6 +977,7 @@ function drawResumen(){ drawKPIs(); }
 
 
   // ✅ Tablas que queremos sincronizar
+// ✅ Tablas que queremos sincronizar
 const TABLAS = {
   clientes: { 
     key: K_CLIENTES, 
@@ -996,8 +997,57 @@ const TABLAS = {
       tel: r.telefono || '',
       email: r.email || ''
     })
+  },
+
+  productos: {
+    key: K_PRODUCTOS,
+    mapOut: p => ({
+      id: p.id,
+      nombre: p.nombre,
+      precio: p.precio,
+      unidad: p.unidad,
+      categoria: p.categoria,
+      updated_at: p.updated_at || new Date().toISOString()
+    }),
+    mapIn: r => ({
+      id: r.id || uid(),
+      nombre: r.nombre || '',
+      precio: r.precio || 0,
+      unidad: r.unidad || '',
+      categoria: r.categoria || '',
+      updated_at: r.updated_at || new Date().toISOString()
+    })
+  },
+
+  facturas: {
+    key: K_FACTURAS,
+    mapOut: f => ({
+      id: f.id,
+      numero: f.numero,
+      cliente: f.cliente,
+      nif: f.nif,
+      direccion: f.dir,
+      telefono: f.tel,
+      email: f.email,
+      fecha: f.fecha,
+      total: f.total,
+      estado: f.estado
+    }),
+    mapIn: r => ({
+      id: r.id || uid(),
+      numero: r.numero || '',
+      cliente: r.cliente || '',
+      nif: r.nif || '',
+      dir: r.direccion || '',
+      tel: r.telefono || '',
+      email: r.email || '',
+      fecha: r.fecha || new Date().toISOString(),
+      total: r.total || 0,
+      estado: r.estado || 'Pendiente'
+    })
   }
-}; // 👈 ESTA LÍNEA FINAL ES OBLIGATORIA (cierra el objeto TABLAS)
+};
+
 
 
   // 🔁 Función para sincronizar una tabla
