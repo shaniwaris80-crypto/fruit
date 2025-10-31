@@ -1,4 +1,26 @@
 
+/* ============================================================
+   🥝 ARSLAN PRO V10.4 KIWI — SUPABASE INICIALIZACIÓN GLOBAL FIX
+   ============================================================ */
+import { createClient } from "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.1/+esm";
+
+const SUPABASE_URL = "https://fjfbokkcdbmralwzsest.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqnd";
+window.supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+
+console.log("✅ Supabase conectado correctamente:", SUPABASE_URL);
+
+// Evita errores de mayúsculas/minúsculas (normaliza claves)
+function normalizarKeys(obj) {
+  if (Array.isArray(obj)) return obj.map(normalizarKeys);
+  if (typeof obj === "object" && obj !== null) {
+    const nuevo = {};
+    for (let k in obj) nuevo[k.toLowerCase()] = normalizarKeys(obj[k]);
+    return nuevo;
+  }
+  return obj;
+}
+
 // --- GLOBAL FIX FOR KEYS AND LOAD/SAVE ---
 window.K_CLIENTES   = 'arslan_v104_clientes';
 window.K_PRODUCTOS  = 'arslan_v104_productos';
