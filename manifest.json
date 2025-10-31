@@ -1,0 +1,21 @@
+{
+  "name": "ARSLAN PRO KIWI",
+  "short_name": "ARSLAN PRO",
+  "start_url": "/fruit/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#16a34a",
+  "description": "Gestión y facturación profesional para fruterías — KIWI Edition",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "logo.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
