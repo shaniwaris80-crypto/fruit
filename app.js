@@ -1808,3 +1808,58 @@ Array.prototype.map = function(fn, thisArg){
     }
   }, 30000);
 })();
+/* ===========================================================
+   💚 FIX GLOBAL — Crear renderAll universal
+   =========================================================== */
+window.renderAll = async function() {
+  console.log("🔄 Ejecutando renderAll universal...");
+
+  try {
+    if (typeof renderClientes === "function") {
+      renderClientes();
+      console.log("👥 Clientes actualizados.");
+    }
+
+    if (typeof renderProductos === "function") {
+      renderProductos();
+      console.log("🍏 Productos actualizados.");
+    }
+
+    if (typeof renderFacturas === "function") {
+      renderFacturas();
+      console.log("🧾 Facturas actualizadas.");
+    }
+
+    if (typeof renderResumen === "function") {
+      renderResumen();
+      console.log("📊 Resumen actualizado.");
+    }
+
+    console.log("✅ renderAll completado correctamente.");
+  } catch (err) {
+    console.error("❌ Error ejecutando renderAll universal:", err);
+  }
+};
+
+/* ===========================================================
+   🚀 FIX FINAL — Esperar a renderAll y ejecutarlo
+   =========================================================== */
+(function ensureRenderAll() {
+  console.log("🧩 Esperando a que renderAll esté disponible...");
+  let tries = 0;
+  const interval = setInterval(() => {
+    tries++;
+    if (typeof renderAll === "function") {
+      clearInterval(interval);
+      renderAll();
+      console.log("🎉 renderAll ejecutado correctamente tras", tries, "segundos.");
+    } else if (tries % 10 === 0) {
+      console.warn("⌛ renderAll aún no disponible tras", tries, "segundos...");
+    }
+    if (tries > 60) {
+      clearInterval(interval);
+      console.error("⚠️ No se detectó renderAll después de 60 segundos.");
+    }
+  }, 1000);
+})();
+
