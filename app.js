@@ -1,3 +1,4 @@
+
 // --- GLOBAL FIX FOR KEYS AND LOAD/SAVE ---
 window.K_CLIENTES   = 'arslan_v104_clientes';
 window.K_PRODUCTOS  = 'arslan_v104_productos';
@@ -1179,5 +1180,199 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
 }); // ← 💥 esta llave y paréntesis cierran el evento
 
 // ✅ Cierre final del bloque principal
+  /* ============================================================
+   🔗 ARSLAN PRO — SUPABASE V10.4 (FULL BIDIRECCIONAL + LIVE SYNC)
+   ============================================================ */
+
+const SUPABASE_URL = "https://fjfbokkcdbmralwzsest.supabase.co";
+const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU";
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+/* ============================================================
+   🧠 UTILIDADES DE NORMALIZACIÓN Y SEGURIDAD
+   ============================================================ */
+function normalizeString(str) {
+  return (str || "")
+    .toString()
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, " ");
+}
+
+function normalizeObjectKeys(obj) {
+  if (!obj || typeof obj !== "object") return obj;
+  const clean = {};
+  for (const [key, val] of Object.entries(obj)) {
+    clean[key.toLowerCase()] = val;
+  }
+  return clean;
+}
+
+function safeJSON(data) {
+  try { return JSON.parse(JSON.stringify(data)); } catch { return []; }
+}
+
+function getLS(key) {
+  try { return JSON.parse(localStorage.getItem(key)) || []; } catch { return []; }
+}
+function setLS(key, data) {
+  localStorage.setItem(key, JSON.stringify(data || []));
+}
+function sameId(a, b) { return a && b && a.id && b.id && a.id === b.id; }
+
+/* ============================================================
+   🔄 SINCRONIZACIÓN GENERALIZADA (UNIVERSAL)
+   ============================================================ */
+async function syncTable(tableName, columns = "*") {
+  const table = normalizeString(tableName);
+  console.log(`🔁 Sincronizando tabla: ${table}...`);
+
+  try {
+    const { data: remoto, error } = await supabase.from(table).select(columns);
+    if (error) throw error;
+
+    const local = safeJSON(getLS(table));
+    const combinados = [...local];
+
+    remoto.forEach(r => {
+      const rNorm = normalizeObjectKeys(r);
+      const idx = combinados.findIndex(l => sameId(l, rNorm));
+      if (idx === -1) combinados.push(rNorm);
+      else combinados[idx] = { ...combinados[idx], ...rNorm };
+    });
+
+    setLS(table, combinados);
+
+    for (const item of local) {
+      if (!remoto.some(r => r.id === item.id)) {
+        const toUpload = normalizeObjectKeys(item);
+        const { error: insErr } = await supabase.from(table).insert([toUpload]);
+        if (insErr) console.warn(`⚠️ Error subiendo a ${table}:`, insErr.message);
+        else console.log(`⬆️ ${table} → fila subida (${item.id || "nuevo"})`);
+      }
+    }
+
+    console.log(`✅ ${table} sincronizada (${combinados.length} filas).`);
+    return combinados;
+
+  } catch (err) {
+    console.error(`🚨 Error sincronizando ${table}:`, err.message);
+    return [];
+  }
+}
+
+/* ============================================================
+   🧍 FUNCIONES POR TABLA
+   ============================================================ */
+async function syncClientes() {
+  return await syncTable("clientes", "id, nombre, nif, direccion, email, telefono, created_at");
+}
+async function syncProductos() {
+  return await syncTable("productos", "id, nombre, unidad, precio, price_hist, created_at");
+}
+async function syncFacturas() {
+  return await syncTable("facturas", "id, numero, fecha, cliente_id, subtotal, iva, transporte, total, estado, lineas, created_at");
+}
+
+/* ============================================================
+   ⚡ SINCRONIZACIÓN TOTAL AUTOMÁTICA
+   ============================================================ */
+async function syncAll() {
+  console.log("☁️ Sincronización global iniciada...");
+  await Promise.all([syncClientes(), syncProductos(), syncFacturas()]);
+  console.log("✅ Sincronización global completada.");
+}
+
+/* ============================================================
+   📡 REALTIME — MONITOREO DE CAMBIOS
+   ============================================================ */
+function startRealtimeSync() {
+  console.log("📡 Activando monitoreo Supabase...");
+
+  const tablas = ["clientes", "productos", "facturas"];
+
+  for (const tabla of tablas) {
+    supabase
+      .channel("realtime-" + tabla)
+      .on("postgres_changes", { event: "*", schema: "public", table: tabla }, async payload => {
+        console.log(`🔔 Cambio remoto detectado en ${tabla}: ${payload.eventType}`);
+        await syncTable(tabla);
+      })
+      .subscribe();
+  }
+}
+
+/* ============================================================
+   🔁 SUBIDA AUTOMÁTICA EN CAMBIOS LOCALES (GENÉRICO)
+   ============================================================ */
+async function uploadChange(table, data) {
+  const tabla = normalizeString(table);
+  const registro = normalizeObjectKeys(data);
+  try {
+    const { data: exist } = await supabase
+      .from(tabla)
+      .select("id")
+      .eq("id", registro.id)
+      .maybeSingle();
+
+    if (exist) {
+      await supabase.from(tabla).update(registro).eq("id", registro.id);
+      console.log(`🔼 ${tabla} actualizado (${registro.id})`);
+    } else {
+      await supabase.from(tabla).insert([registro]);
+      console.log(`🆕 ${tabla} insertado (${registro.id || "nuevo"})`);
+    }
+  } catch (e) {
+    console.error(`❌ Error subiendo cambio en ${tabla}:`, e.message);
+  }
+}
+
+/* ============================================================
+   ⚡ SUBIDA INSTANTÁNEA POR TIPO
+   ============================================================ */
+async function saveClienteToSupabase(cliente) {
+  if (!cliente) return;
+  await uploadChange("clientes", cliente);
+}
+
+async function saveProductoToSupabase(producto) {
+  if (!producto) return;
+  await uploadChange("productos", producto);
+}
+
+async function saveFacturaToSupabase(factura) {
+  if (!factura) return;
+  await uploadChange("facturas", factura);
+}
+
+/* ============================================================
+   🗑️ ELIMINACIÓN REMOTA
+   ============================================================ */
+async function deleteFromSupabase(tabla, id) {
+  try {
+    await supabase.from(tabla.toLowerCase()).delete().eq("id", id);
+    console.log(`🗑️ Eliminado de ${tabla}: ${id}`);
+  } catch (e) {
+    console.error(`❌ Error eliminando en ${tabla}:`, e.message);
+  }
+}
+
+/* ============================================================
+   🚀 INICIO AUTOMÁTICO Y RECONECTORES
+   ============================================================ */
+async function startSupabaseSync() {
+  console.log("🚀 ARSLAN PRO conectado con Supabase (modo seguro).");
+  await syncAll();
+  startRealtimeSync();
+
+  // Reintento cada 10 min si hay cortes
+  setInterval(() => {
+    console.log("♻️ Verificación de conexión con Supabase...");
+    syncAll();
+  }, 10 * 60 * 1000);
+}
+
+document.addEventListener("DOMContentLoaded", startSupabaseSync);
+
 })();
 
