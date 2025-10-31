@@ -164,15 +164,64 @@ function renderPriceHistory(name){
 function hidePanelSoon(){ clearTimeout(hidePanelSoon.t); hidePanelSoon.t=setTimeout(()=>$('#pricePanel')?.setAttribute('hidden',''), 4800); }
 
 /* ---------- CLIENTES UI (IDs seguras) ---------- */
-function saveClientes(){ save(K_CLIENTES, clientes); }
-function renderClientesSelect(){
-  const sel = $('#selCliente'); if(!sel) return;
-  sel.innerHTML = `<option value="">— Seleccionar cliente —</option>`;
-  const arr = [...clientes].sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
-  arr.forEach((c)=>{
-    const opt=document.createElement('option'); opt.value=c.id; opt.textContent=c.nombre||'(Sin nombre)'; sel.appendChild(opt);
-  });
+/* ===========================================================
+   🧩 CREACIÓN / GUARDADO DE CLIENTES CON UUID VÁLIDO
+   =========================================================== */
+function saveCliente() {
+  try {
+    const nombre = $('#cliente-nombre').value.trim();
+    const direccion = $('#cliente-direccion').value.trim();
+    const nif = $('#cliente-nif').value.trim();
+    const telefono = $('#cliente-telefono').value.trim();
+    const email = $('#cliente-email').value.trim();
+
+    if (!nombre) {
+      alert('⚠️ Debes introducir un nombre para el cliente.');
+      return;
+    }
+
+    // Detectar cliente existente (modo edición)
+    let idCliente = $('#cliente-id').value || null;
+
+    // Si el ID actual no existe o no es un UUID válido, se genera uno nuevo
+    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!idCliente || !uuidRegex.test(idCliente)) {
+      idCliente = crypto.randomUUID();
+    }
+
+    const cliente = {
+      id: idCliente,
+      nombre,
+      direccion,
+      nif,
+      telefono,
+      email,
+      ts: new Date().toISOString()
+    };
+
+    // Actualizar o añadir localmente
+    let clientes = JSON.parse(localStorage.getItem('clientes') || '[]');
+    const i = clientes.findIndex(c => c.id === cliente.id);
+    if (i >= 0) clientes[i] = cliente;
+    else clientes.push(cliente);
+
+    localStorage.setItem('clientes', JSON.stringify(clientes));
+
+    console.log('✅ Cliente guardado localmente:', cliente);
+
+    // 🔁 Intentar sincronización inmediata con Supabase
+    if (window.syncTable) {
+      syncTable('clientes');
+    }
+
+    alert('✅ Cliente guardado correctamente');
+    renderAll();
+  } catch (err) {
+    console.error('❌ Error guardando cliente:', err);
+    alert('Error al guardar el cliente. Revisa la consola.');
+  }
 }
+
 function renderClientesLista(){
   const cont = $('#listaClientes'); if(!cont) return;
   cont.innerHTML='';
