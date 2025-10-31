@@ -489,7 +489,6 @@ function genNumFactura() {
   const pad = n => String(n).padStart(2, '0');
   return `FA-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
 }
-
 // ===========================================================
 // 💾 Guardar facturas (local + Supabase)
 // ===========================================================
