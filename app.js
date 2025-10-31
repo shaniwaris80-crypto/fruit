@@ -1862,4 +1862,82 @@ window.renderAll = async function() {
     }
   }, 1000);
 })();
+/* ===========================================================
+   🧱 FIX 1 — Protección universal contra arr.map errores
+   =========================================================== */
+const oldMap = Array.prototype.map;
+Array.prototype.map = function(callback, thisArg) {
+  if (typeof callback !== "function") return oldMap.call([], callback, thisArg);
+  try {
+    return oldMap.call(this, callback, thisArg);
+  } catch (e) {
+    console.warn("⚠️ safeMap aplicado:", e);
+    const arr = Array.isArray(this) ? this : Object.values(this || {});
+    return oldMap.call(arr, callback, thisArg);
+  }
+};
+
+/* ===========================================================
+   💚 FIX 2 — Crear renderAll universal si no existe
+   =========================================================== */
+if (typeof window.renderAll !== "function") {
+  window.renderAll = async function() {
+    console.log("🔄 Ejecutando renderAll universal...");
+    try {
+      if (typeof renderClientes === "function") {
+        renderClientes();
+        console.log("👥 Clientes actualizados.");
+      }
+      if (typeof renderProductos === "function") {
+        renderProductos();
+        console.log("🍏 Productos actualizados.");
+      }
+      if (typeof renderFacturas === "function") {
+        renderFacturas();
+        console.log("🧾 Facturas actualizadas.");
+      }
+      if (typeof renderResumen === "function") {
+        renderResumen();
+        console.log("📊 Resumen actualizado.");
+      }
+      console.log("✅ renderAll completado correctamente.");
+    } catch (err) {
+      console.error("❌ Error ejecutando renderAll universal:", err);
+    }
+  };
+}
+
+/* ===========================================================
+   🚀 FIX 3 — Esperar y ejecutar renderAll automáticamente
+   =========================================================== */
+(function ensureRenderAll() {
+  console.log("🧩 Esperando a que renderAll esté disponible...");
+  let tries = 0;
+  const timer = setInterval(() => {
+    tries++;
+    if (typeof renderAll === "function") {
+      try {
+        renderAll();
+        console.log("🎉 renderAll ejecutado correctamente tras", tries, "segundos.");
+      } catch (e) {
+        console.error("❌ Error ejecutando renderAll:", e);
+      }
+      clearInterval(timer);
+    } else if (tries % 10 === 0) {
+      console.warn("⌛ renderAll aún no disponible tras", tries, "segundos...");
+    }
+    if (tries > 60) {
+      clearInterval(timer);
+      console.error("⚠️ No se detectó renderAll después de 60 segundos.");
+    }
+  }, 1000);
+
+  // Seguridad adicional: forzar actualización cada 30 segundos
+  setInterval(() => {
+    if (typeof renderAll === "function") {
+      try { renderAll(); console.log("🔁 Refrescando interfaz periódicamente..."); }
+      catch(e){ console.error("⚠️ Error al refrescar:", e); }
+    }
+  }, 30000);
+})();
 
