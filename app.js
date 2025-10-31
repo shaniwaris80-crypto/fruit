@@ -1304,6 +1304,14 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
       syncBidireccional();
     });
   }
+   // --- Exportar funciones y claves al ámbito global ---
+window.load = load;
+window.save = save;
+window.K_CLIENTES = K_CLIENTES;
+window.K_PRODUCTOS = K_PRODUCTOS;
+window.K_FACTURAS = K_FACTURAS;
+window.K_PRICEHIST = K_PRICEHIST;
+
 })();
 
 
