@@ -532,33 +532,32 @@ async function saveFacturas() {
   /* ===========================================================
    ☁️ SUBIR FACTURA NUEVA A SUPABASE TRAS GUARDARLA
    =========================================================== */
-try {
-  if (supabase && facturaActual) {
-    const { data, error } = await supabase
-      .from('facturas')
-      .upsert([{
-        id: facturaActual.id,
-        numero: facturaActual.numero,
-        cliente: facturaActual.cliente,
-        nif: facturaActual.nif,
-        direccion: facturaActual.direccion,
-        telefono: facturaActual.telefono,
-        email: facturaActual.email,
-        fecha: facturaActual.fecha,
-        total: facturaActual.total,
-        estado: facturaActual.estado || 'Pendiente',
-        updated_at: new Date().toISOString()
-      }]);
+(async () => {
+  try {
+    if (supabase && facturaActual) {
+      const { data, error } = await supabase
+        .from('facturas')
+        .upsert([{
+          id: facturaActual.id,
+          numero: facturaActual.numero,
+          cliente: facturaActual.cliente,
+          nif: facturaActual.nif,
+          direccion: facturaActual.direccion,
+          telefono: facturaActual.telefono,
+          email: facturaActual.email,
+          fecha: facturaActual.fecha,
+          total: facturaActual.total,
+          estado: facturaActual.estado || 'Pendiente',
+          updated_at: new Date().toISOString()
+        }]);
 
-    if (error) {
-      console.warn("⚠️ Error subiendo factura:", error);
-    } else {
-      console.log("✅ Factura subida correctamente:", data);
+      if (error) console.warn("⚠️ Error subiendo factura:", error);
+      else console.log("✅ Factura subida correctamente:", data);
     }
+  } catch (e) {
+    console.error("❌ Error al subir la factura:", e);
   }
-} catch (e) {
-  console.error("❌ Error al subir la factura:", e);
-}
+})();
 
 
 $('#btnGuardar')?.addEventListener('click', ()=>{
