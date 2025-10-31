@@ -1862,20 +1862,7 @@ window.renderAll = async function() {
     }
   }, 1000);
 })();
-/* ===========================================================
-   🧱 FIX 1 — Protección universal contra arr.map errores
-   =========================================================== */
-const oldMap = Array.prototype.map;
-Array.prototype.map = function(callback, thisArg) {
-  if (typeof callback !== "function") return oldMap.call([], callback, thisArg);
-  try {
-    return oldMap.call(this, callback, thisArg);
-  } catch (e) {
-    console.warn("⚠️ safeMap aplicado:", e);
-    const arr = Array.isArray(this) ? this : Object.values(this || {});
-    return oldMap.call(arr, callback, thisArg);
-  }
-};
+
 
 /* ===========================================================
    💚 FIX 2 — Crear renderAll universal si no existe
