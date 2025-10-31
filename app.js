@@ -1,204 +1,224 @@
-/* ===========================================================
-   ARSLAN PRO V10.4 — FIX UNIVERSAL CLIENTES / SYNC / RENDER
-   =========================================================== */
+// --- SUPABASE INIT ---
+const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+supabase.from('clientes').select('*').then(console.log).catch(console.error);
 
-/* ---------- UTILIDADES ---------- */
-const $ = s => document.querySelector(s);
-const $$ = s => Array.from(document.querySelectorAll(s));
-const money = n => (isNaN(n) ? 0 : n).toFixed(2).replace(".", ",") + " €";
-const parseNum = v => {
-  const n = parseFloat(String(v).replace(",", "."));
-  return isNaN(n) ? 0 : n;
-};
-const escapeHTML = s => String(s || "");
 
-/* ===========================================================
-   🩹 FIX: renderClientesSelect — definido ANTES DE TODO
-   =========================================================== */
-function renderClientesSelect() {
+/* =======================================================
+   ARSLAN PRO V10.4 — KIWI Edition (Full, estable)
+   - Misma base funcional + mejoras de totales, PDF, UX rápido
+   - 4 paletas, sin splash, logo kiwi solo en PDF, "FACTURA"
+   - Clientes: selección segura por ID (evita datos cruzados)
+======================================================= */
+(function(){
+"use strict";
+
+/* ---------- HELPERS ---------- */
+const $  = (s,root=document)=>root.querySelector(s);
+const $$ = (s,root=document)=>Array.from(root.querySelectorAll(s));
+const money = n => (isNaN(n)?0:n).toFixed(2).replace('.', ',') + " €";
+const parseNum = v => { const n = parseFloat(String(v).replace(',', '.')); return isNaN(n) ? 0 : n; };
+const escapeHTML = s => String(s||'').replace(/[&<>"']/g, m=>({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[m]));
+const todayISO = () => new Date().toISOString();
+const fmtDateDMY = d => `${String(d.getDate()).padStart(2,'0')}-${String(d.getMonth()+1).padStart(2,'0')}-${d.getFullYear()}`;
+const unMoney = s => parseFloat(String(s).replace(/\./g,'').replace(',','.').replace(/[^\d.]/g,'')) || 0;
+const uid = ()=>'c'+Math.random().toString(36).slice(2,10)+Date.now().toString(36);
+
+/* ---------- KEYS ---------- */
+const K_CLIENTES='arslan_v104_clientes';
+const K_PRODUCTOS='arslan_v104_productos';
+const K_FACTURAS='arslan_v104_facturas';
+const K_PRICEHIST='arslan_v104_pricehist';
+
+/* ---------- ESTADO ---------- */
+let clientes  = load(K_CLIENTES, []);
+let productos = load(K_PRODUCTOS, []);
+let facturas  = load(K_FACTURAS, []);
+let priceHist = load(K_PRICEHIST, {});
+
+function load(k, fallback){ try{ const v = JSON.parse(localStorage.getItem(k)||''); return v ?? fallback; } catch{ return fallback; } }
+function save(k, v){ localStorage.setItem(k, JSON.stringify(v)); }
+
+/* ---------- TABS ---------- */
+function switchTab(id){
+  $$('button.tab').forEach(b=>b.classList.toggle('active', b.dataset.tab===id));
+  $$('section.panel').forEach(p=>p.classList.toggle('active', p.dataset.tabPanel===id));
+  if(id==='ventas'){ drawKPIs(); drawCharts(); drawTop(); renderVentasCliente(); }
+  if(id==='pendientes'){ renderPendientes(); }
+  if(id==='resumen'){ drawResumen(); }
+}
+$$('button.tab').forEach(b=>b.addEventListener('click', ()=>switchTab(b.dataset.tab)));
+
+/* ---------- SEED DATA ---------- */
+function uniqueByName(arr){
+  const map=new Map();
+  arr.forEach(c=>{ const k=(c.nombre||'').trim().toLowerCase(); if(k && !map.has(k)) map.set(k,c); });
+  return [...map.values()];
+}
+function ensureClienteIds(){
+  clientes.forEach(c=>{ if(!c.id) c.id=uid(); });
+}
+function seedClientesIfEmpty(){
+  if(clientes.length) return ensureClienteIds();
+  clientes = uniqueByName([
+    {id:uid(), nombre:'Riviera — CONOR ESY SLU', nif:'B16794893', dir:'Paseo del Espolón, 09003 Burgos'},
+    {id:uid(), nombre:'Alesal Pan / Café de Calle San Lesmes — Alesal Pan y Café S.L.', nif:'B09582420', dir:'C/ San Lesmes 1, Burgos'},
+    {id:uid(), nombre:'Al Pan Pan Burgos, S.L.', nif:'B09569344', dir:'C/ Miranda 17, Bajo, 09002 Burgos', tel:'947 277 977', email:'bertiz.miranda@gmail.com'},
+    {id:uid(), nombre:'Cuevas Palacios Restauración S.L. (Con/sentidos)', nif:'B10694792', dir:'C/ San Lesmes, 1 – 09004 Burgos', tel:'947 20 35 51'},
+    {id:uid(), nombre:'Café Bar Nuovo (Einy Mercedes Olivo Jiménez)', nif:'120221393', dir:'C/ San Juan de Ortega 14, 09007 Burgos'},
+    {id:uid(), nombre:'Hotel Cordon'},
+    {id:uid(), nombre:'Vaivén Hostelería'},
+    {id:uid(), nombre:'Grupo Resicare'},
+    {id:uid(), nombre:'Carlos Alameda Peralta & Seis Más'},
+    {id:uid(), nombre:'Tabalou Development SLU', nif:'ES B09567769'},
+    {id:uid(), nombre:'Golden Garden — David Herrera Estalayo', nif:'71281665L', dir:'Trinidad, 12, 09003 Burgos'},
+    {id:uid(), nombre:'Romina — PREMIER', dir:'C/ Madrid 42, Burgos'},
+    {id:uid(), nombre:'Abbas — Locutorio Gamonal', dir:'C/ Derechos Humanos 45, Burgos'},
+    {id:uid(), nombre:'Nadeem Bhai — RIA Locutorio', dir:'C/ Vitoria 137, Burgos'},
+    {id:uid(), nombre:'Mehmood — Mohsin Telecom', dir:'C/ Vitoria 245, Burgos'},
+    {id:uid(), nombre:'Adnan Asif', nif:'X7128589S', dir:'C/ Padre Flórez 3, Burgos'},
+    {id:uid(), nombre:'Imran Khan — Estambul', dir:'Avda. del Cid, Burgos'},
+    {id:uid(), nombre:'Waqas Sohail', dir:'C/ Vitoria, Burgos'},
+    {id:uid(), nombre:'Malik — Locutorio Malik', dir:'C/ Progreso, Burgos'},
+    {id:uid(), nombre:'Angela', dir:'C/ Madrid, Burgos'},
+    {id:uid(), nombre:'Aslam — Locutorio Aslam', dir:'Avda. del Cid, Burgos'},
+    {id:uid(), nombre:'Victor Pelu — Tienda Centro', dir:'Burgos Centro'},
+    {id:uid(), nombre:'Domingo'},
+    {id:uid(), nombre:'Bar Tropical'},
+    {id:uid(), nombre:'Bar Punta Cana — PUNTA CANA', dir:'C/ Los Titos, Burgos'},
+    {id:uid(), nombre:'Jose — Alimentación Patxi', dir:'C/ Camino Casa la Vega 33, Burgos'},
+    {id:uid(), nombre:'Ideal — Ideal Supermercado', dir:'Avda. del Cid, Burgos'}
+  ]);
+  save(K_CLIENTES, clientes);
+}
+const PRODUCT_NAMES = [
+"GRANNY FRANCIA","MANZANA PINK LADY","MANDARINA COLOMBE","KIWI ZESPRI GOLD","PARAGUAYO","KIWI TOMASIN PLANCHA","PERA RINCON DEL SOTO","MELOCOTON PRIMERA","AGUACATE GRANEL","MARACUYÁ",
+"MANZANA GOLDEN 24","PLATANO CANARIO PRIMERA","MANDARINA HOJA","MANZANA GOLDEN 20","NARANJA TOMASIN","NECTARINA","NUECES","SANDIA","LIMON SEGUNDA","MANZANA FUJI",
+"NARANJA MESA SONRISA","JENGIBRE","BATATA","AJO PRIMERA","CEBOLLA NORMAL","CALABAZA GRANDE","PATATA LAVADA","TOMATE CHERRY RAMA","TOMATE CHERRY PERA","TOMATE DANIELA","TOMATE ROSA PRIMERA",
+"CEBOLLINO","TOMATE ASURCADO MARRON","TOMATE RAMA","PIMIENTO PADRON","ZANAHORIA","PEPINO","CEBOLLETA","PUERROS","BROCOLI","JUDIA VERDE","BERENJENA","PIMIENTO ITALIANO VERDE",
+"PIMIENTO ITALIANO ROJO","CHAMPIÑON","UVA ROJA","UVA BLANCA","ALCACHOFA","CALABACIN","COLIFLOR","BATAVIA","ICEBERG","MANDARINA SEGUNDA","MANZANA GOLDEN 28","NARANJA ZUMO","KIWI SEGUNDA",
+"MANZANA ROYAL GALA 24","PLATANO CANARIO SUELTO","CEREZA","FRESAS","ARANDANOS","ESPINACA","PEREJIL","CILANTRO","ACELGAS","PIMIENTO VERDE","PIMIENTO ROJO","MACHO VERDE","MACHO MADURO",
+"YUCA","AVOCADO","CEBOLLA ROJA","MENTA","HABANERO","RABANITOS","POMELO","PAPAYA","REINETA 28","NISPERO","ALBARICOQUE","TOMATE PERA","TOMATE BOLA","TOMATE PINK","VALVENOSTA GOLDEN",
+"MELOCOTON ROJO","MELON GALIA","APIO","NARANJA SANHUJA","LIMON PRIMERA","MANGO","MELOCOTON AMARILLO","VALVENOSTA ROJA","PIÑA","NARANJA HOJA","PERA CONFERENCIA SEGUNDA","CEBOLLA DULCE",
+"TOMATE ASURCADO AZUL","ESPARRAGOS BLANCOS","ESPARRAGOS TRIGUEROS","REINETA PRIMERA","AGUACATE PRIMERA","COCO","NECTARINA SEGUNDA","REINETA 24","NECTARINA CARNE BLANCA","GUINDILLA",
+"REINETA VERDE","PATATA 25KG","PATATA 5 KG","TOMATE RAFF","REPOLLO","KIWI ZESPRI","PARAGUAYO SEGUNDA","MELON","REINETA 26","TOMATE ROSA","MANZANA CRIPS",
+"ALOE VERA PIEZAS","TOMATE ENSALADA","PATATA 10KG","MELON BOLLO","CIRUELA ROJA","LIMA","GUINEO VERDE","SETAS","BANANA","BONIATO","FRAMBUESA","BREVAS","PERA AGUA","YAUTIA","YAME",
+"OKRA","MANZANA MELASSI","CACAHUETE","SANDIA NEGRA","SANDIA RAYADA","HIGOS","KUMATO","KIWI CHILE","MELOCOTON AMARILLO SEGUNDA","HIERBABUENA","REMOLACHA","LECHUGA ROMANA","CEREZA",
+"KAKI","CIRUELA CLAUDIA","PERA LIMONERA","CIRUELA AMARILLA","HIGOS BLANCOS","UVA ALVILLO","LIMON EXTRA","PITAHAYA ROJA","HIGO CHUMBO","CLEMENTINA","GRANADA","NECTARINA PRIMERA BIS",
+"CHIRIMOYA","UVA CHELVA","PIMIENTO CALIFORNIA VERDE","KIWI TOMASIN","PIMIENTO CALIFORNIA ROJO","MANDARINA SATSUMA","CASTAÑA","CAKI","MANZANA KANZI","PERA ERCOLINA","NABO",
+"UVA ALVILLO NEGRA","CHAYOTE","ROYAL GALA 28","MANDARINA PRIMERA","PIMIENTO PINTON","MELOCOTON AMARILLO DE CALANDA","HINOJOS","MANDARINA DE HOJA","UVA ROJA PRIMERA","UVA BLANCA PRIMERA"
+];
+function seedProductsIfEmpty(){
+  if(productos.length) return;
+  productos = PRODUCT_NAMES.map(n=>({name:n}));
+  save(K_PRODUCTOS, productos);
+}
+
+/* ---------- PROVIDER DEFAULTS (tus datos) ---------- */
+function setProviderDefaultsIfEmpty(){
+  if(!$('#provNombre').value) $('#provNombre').value = 'Mohammad Arslan Waris';
+  if(!$('#provNif').value)    $('#provNif').value    = 'X6389988J';
+  if(!$('#provDir').value)    $('#provDir').value    = 'Calle San Pablo 17, 09003 Burgos';
+  if(!$('#provTel').value)    $('#provTel').value    = '631 667 893';
+  if(!$('#provEmail').value)  $('#provEmail').value  = 'shaniwaris80@gmail.com';
+}
+
+/* ---------- HISTORIAL DE PRECIOS ---------- */
+function lastPrice(name){ const arr = priceHist[name]; return arr?.length ? arr[0].price : null; }
+function pushPriceHistory(name, price){
+  if(!name || !(price>0)) return;
+  const arr = priceHist[name] || [];
+  arr.unshift({price, date: todayISO()});
+  priceHist[name] = arr.slice(0,10);
+  save(K_PRICEHIST, priceHist);
+}
+function renderPriceHistory(name){
+  const panel=$('#pricePanel'), body=$('#ppBody'); if(!panel||!body) return;
+  panel.removeAttribute('hidden');
+  const hist=priceHist[name]||[];
+  if(hist.length===0){ body.innerHTML=`<div class="pp-row"><span>${escapeHTML(name)}</span><strong>Sin datos</strong></div>`; hidePanelSoon(); return; }
+  body.innerHTML=`<div class="pp-row" style="justify-content:center"><strong>${escapeHTML(name)}</strong></div>` +
+    hist.map(h=>`<div class="pp-row"><span>${fmtDateDMY(new Date(h.date))}</span><strong>${money(h.price)}</strong></div>`).join('');
+  hidePanelSoon();
+}
+function hidePanelSoon(){ clearTimeout(hidePanelSoon.t); hidePanelSoon.t=setTimeout(()=>$('#pricePanel')?.setAttribute('hidden',''), 4800); }
+
+/* ---------- CLIENTES UI (IDs seguras) ---------- */
+function saveClientes(){ save(K_CLIENTES, clientes); }
+function renderClientesSelect(){
+  const sel = $('#selCliente'); if(!sel) return;
+  sel.innerHTML = `<option value="">— Seleccionar cliente —</option>`;
+  const arr = [...clientes].sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+  arr.forEach((c)=>{
+    const opt=document.createElement('option'); opt.value=c.id; opt.textContent=c.nombre||'(Sin nombre)'; sel.appendChild(opt);
+  });
+}
+function renderClientesLista(){
+  const cont = $('#listaClientes'); if(!cont) return;
+  cont.innerHTML='';
+  const q = ($('#buscarCliente')?.value||'').toLowerCase();
+  const arr = [...clientes].sort((a,b)=>(a.nombre||'').localeCompare(b.nombre||''));
+  const view = q ? arr.filter(c=>(c.nombre||'').toLowerCase().includes(q) || (c.nif||'').toLowerCase().includes(q) || (c.dir||'').toLowerCase().includes(q)) : arr;
+  if(view.length===0){ cont.innerHTML='<div class="item">Sin clientes.</div>'; return; }
+  view.forEach((c)=>{
+    const row=document.createElement('div'); row.className='item';
+    row.innerHTML=`
+      <div>
+        <strong>${escapeHTML(c.nombre||'(Sin nombre)')}</strong>
+        <div class="muted">${escapeHTML(c.nif||'')} · ${escapeHTML(c.dir||'')}</div>
+      </div>
+      <div class="row">
+        <button class="ghost" data-e="use" data-id="${c.id}">Usar</button>
+        <button class="ghost" data-e="edit" data-id="${c.id}">Editar</button>
+        <button class="ghost" data-e="del" data-id="${c.id}">Borrar</button>
+      </div>
+    `;
+    cont.appendChild(row);
+  });
+  cont.querySelectorAll('button').forEach(b=>{
+    const id=b.dataset.id;
+    b.addEventListener('click', ()=>{
+      const i=clientes.findIndex(x=>x.id===id); if(i<0) return;
+      if(b.dataset.e==='use'){
+        const c=clientes[i]; if(!c) return;
+        fillClientFields(c); switchTab('factura');
+      }else if(b.dataset.e==='edit'){
+        const c=clientes[i];
+        const nombre=prompt('Nombre',c.nombre||'')??c.nombre;
+        const nif=prompt('NIF',c.nif||'')??c.nif;
+        const dir=prompt('Dirección',c.dir||'')??c.dir;
+        const tel=prompt('Tel',c.tel||'')??c.tel;
+        const email=prompt('Email',c.email||'')??c.email;
+        clientes[i]={...c,nombre,nif,dir,tel,email}; saveClientes(); renderClientesSelect(); renderClientesLista();
+      }else{
+        if(confirm('¿Eliminar cliente?')){ clientes.splice(i,1); saveClientes(); renderClientesSelect(); renderClientesLista(); // 🚀 También guardar en Supabase
+(async () => {
   try {
-    const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
-    const select = document.querySelector("#factura-cliente");
-    if (!select) return;
-    select.innerHTML = clientes
-      .map(c => `<option value="${c.id}">${c.nombre}</option>`)
-      .join("");
-    console.log(`🧾 renderClientesSelect actualizado (${clientes.length} clientes)`);
-  } catch (err) {
-    console.warn("⚠️ No se pudo renderizar el selector de clientes:", err);
+    const { error } = await supabase
+      .from('clientes')
+      .insert([
+        {
+          nombre: nombre,
+          direccion: dir,
+          nif: nif,
+          telefono: tel
+        }
+      ]);
+    if (error) console.warn('⚠️ Error subiendo a Supabase:', error);
+    else console.log('Cliente guardado en Supabase correctamente ✅');
+  } catch (e) {
+    console.error('❌ Error de conexión Supabase:', e);
   }
+})();
 }
-
-/* ===========================================================
-   🧩 CREACIÓN / GUARDADO DE CLIENTES CON UUID VÁLIDO
-   =========================================================== */
-function saveCliente() {
-  try {
-    const nombre = $("#cliente-nombre")?.value.trim() || "";
-    const direccion = $("#cliente-direccion")?.value.trim() || "";
-    const nif = $("#cliente-nif")?.value.trim() || "";
-    const telefono = $("#cliente-telefono")?.value.trim() || "";
-    const email = $("#cliente-email")?.value.trim() || "";
-
-    if (!nombre) {
-      alert("⚠️ Debes introducir un nombre para el cliente.");
-      return;
-    }
-
-    let idCliente = $("#cliente-id")?.value || null;
-
-    // Generar UUID si no es válido
-    const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    if (!idCliente || !uuidRegex.test(idCliente)) {
-      idCliente = crypto.randomUUID();
-    }
-
-    const cliente = {
-      id: idCliente,
-      nombre,
-      direccion,
-      nif,
-      telefono,
-      email,
-      ts: new Date().toISOString(),
-    };
-
-    let clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
-    const i = clientes.findIndex(c => c.id === cliente.id);
-    if (i >= 0) clientes[i] = cliente;
-    else clientes.push(cliente);
-
-    localStorage.setItem("clientes", JSON.stringify(clientes));
-
-    console.log("✅ Cliente guardado localmente:", cliente);
-
-    if (window.syncTable) syncTable("clientes");
-
-    alert("✅ Cliente guardado correctamente");
-    renderClientesSelect();
-    renderAll();
-  } catch (err) {
-    console.error("❌ Error guardando cliente:", err);
-  }
+      }
+    });
+  });
 }
-
-/* ===========================================================
-   🧾 FUNCIÓN GLOBAL: renderAll()
-   =========================================================== */
-function renderAll() {
-  try {
-    console.log("🔄 Ejecutando renderAll...");
-
-    // CLIENTES
-    const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
-    const contClientes = document.querySelector("#clientes-lista");
-    if (contClientes) {
-      contClientes.innerHTML = clientes.length
-        ? clientes
-            .map(
-              c => `
-          <div class="cliente-item">
-            <strong>${c.nombre}</strong><br>
-            <small>${c.nif || ""}</small><br>
-            <small>${c.direccion || ""}</small><br>
-            <small>${c.telefono || ""}</small><br>
-            <small>${c.email || ""}</small>
-          </div>`
-            )
-            .join("")
-        : "<p class='muted'>Sin clientes registrados</p>";
-    }
-
-    // SELECT CLIENTES
-    renderClientesSelect();
-
-    // PRODUCTOS
-    const productos = JSON.parse(localStorage.getItem("productos") || "[]");
-    const contProductos = document.querySelector("#productos-lista");
-    if (contProductos) {
-      contProductos.innerHTML = productos.length
-        ? productos
-            .map(
-              p => `
-          <div class="producto-item">
-            <strong>${p.nombre}</strong><br>
-            <small>${p.mode || "—"} | ${p.price || 0} €/u</small>
-          </div>`
-            )
-            .join("")
-        : "<p class='muted'>Sin productos registrados</p>";
-    }
-
-    // FACTURAS
-    const facturas = JSON.parse(localStorage.getItem("facturas") || "[]");
-    const contFacturas = document.querySelector("#facturas-lista");
-    if (contFacturas) {
-      contFacturas.innerHTML = facturas.length
-        ? facturas
-            .map(
-              f => `
-          <div class="factura-item">
-            <strong>${f.numero}</strong><br>
-            <small>Cliente: ${f.clienteNombre || "—"}</small><br>
-            <small>Total: ${(f.totalConIVA || f.total || 0).toFixed(2)} €</small><br>
-            <small>Fecha: ${new Date(f.ts).toLocaleDateString()}</small>
-          </div>`
-            )
-            .join("")
-        : "<p class='muted'>Sin facturas generadas</p>";
-    }
-
-    // HISTORIAL DE PRECIOS
-    const priceHist = JSON.parse(localStorage.getItem("priceHist") || "{}");
-    const contHist = document.querySelector("#priceHist-lista");
-    if (contHist) {
-      const entries = Object.entries(priceHist);
-      contHist.innerHTML = entries.length
-        ? entries
-            .map(([prod, hist]) => {
-              const last = hist[hist.length - 1];
-              return `
-            <div class="historial-item">
-              <strong>${prod}</strong><br>
-              <small>Último precio: ${last?.price || 0} €</small>
-            </div>`;
-            })
-            .join("")
-        : "<p class='muted'>Sin historial de precios</p>";
-    }
-
-    console.log("✅ renderAll completado correctamente.");
-  } catch (err) {
-    console.error("❌ Error en renderAll:", err);
-  }
+function fillClientFields(c){
+  $('#cliNombre').value=c.nombre||''; $('#cliNif').value=c.nif||''; $('#cliDir').value=c.dir||''; $('#cliTel').value=c.tel||''; $('#cliEmail').value=c.email||'';
 }
-
-/* ===========================================================
-   🚀 BOOT INICIAL
-   =========================================================== */
-async function boot() {
-  console.log("🚀 Iniciando ARSLAN PRO…");
-
-  // Carga datos locales
-  renderAll();
-
-  // Si existe función de sincronización, la lanza
-  if (window.syncTable) {
-    try {
-      console.log("☁️ Sincronizando tablas iniciales...");
-      await syncTable("clientes");
-      await syncTable("productos");
-      await syncTable("facturas");
-      console.log("✅ Sincronización inicial completada.");
-    } catch (e) {
-      console.warn("⚠️ Error durante sincronización inicial:", e);
-    }
-  }
-
-  console.log("🎉 Sistema ARSLAN PRO listo.");
-}
-
-document.addEventListener("DOMContentLoaded", boot);
 
 /* ---------- PRODUCTOS UI ---------- */
 function saveProductos(){ save(K_PRODUCTOS, productos); }
@@ -220,7 +240,7 @@ function renderProductos(){
       <select data-f="mode">
         <option value="">—</option><option value="kg"${p.mode==='kg'?' selected':''}>kg</option><option value="unidad"${p.mode==='unidad'?' selected':''}>unidad</option><option value="caja"${p.mode==='caja'?' selected':''}>caja</option>
       </select>
-      <input type="number" step="0.01" data-f="boxkg" placeholder="Kg/caja" value="${p.boxkg??''}" />
+      <input type="number" step="0.01" data-f="boxKg" placeholder="Kg/caja" value="${p.boxKg??''}" />
       <input type="number" step="0.01" data-f="price" placeholder="€ base" value="${p.price??''}" />
       <input data-f="origin" placeholder="Origen" value="${escapeHTML(p.origin||'')}" />
       <button data-e="save" data-i="${idx}">💾 Guardar</button>
@@ -237,10 +257,10 @@ function renderProductos(){
         const row=b.closest('.product-row');
         const get=f=>row.querySelector(`[data-f="${f}"]`).value.trim();
         const name=get('name'); const mode=(get('mode')||null);
-        const boxkgStr=get('boxkg'); const boxkg=boxkgStr===''?null:parseNum(Str);
+        const boxKgStr=get('boxKg'); const boxKg=boxKgStr===''?null:parseNum(boxKgStr);
         const priceStr=get('price'); const price=priceStr===''?null:parseNum(priceStr);
         const origin=get('origin')||null;
-        productos[i]={name,mode,boxkg,price,origin}; saveProductos(); populateProductDatalist(); renderProductos();
+        productos[i]={name,mode,boxKg,price,origin}; saveProductos(); populateProductDatalist(); renderProductos();
       }
     });
   });
@@ -308,7 +328,7 @@ function addLinea(){
     let n=0;
 
     if(g>0 || t>0){ n=Math.max(0,g-t); }
-    else if(m==='caja'){ const p=findProducto(name.value); const kg=p?.boxkg||0; n=q*kg; }
+    else if(m==='caja'){ const p=findProducto(name.value); const kg=p?.boxKg||0; n=q*kg; }
     else if(m==='kg'){ n=q; }
     else if(m==='unidad'){ n=q; }
 
@@ -442,67 +462,9 @@ function fillPrint(lines, totals, _temp=null, f=null){
   }catch(e){}
 }
 
-// ===========================================================
-// 🔢 Generar número automático de factura
-// ===========================================================
-function genNumFactura() {
-  const d = new Date();
-  const pad = n => String(n).padStart(2, '0');
-  return `FA-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
-}
-// ===========================================================
-// 💾 Guardar facturas (local + Supabase)
-// ===========================================================
-async function saveFacturas() {
-  try {
-    // 1️⃣ Guardado local
-    save(K_FACTURAS, facturas);
-    console.log("💾 Facturas guardadas localmente:", facturas.length);
-
-    // 2️⃣ Subida a Supabase (solo la última factura guardada)
-    if (!supabase) {
-      console.warn("⚠️ Supabase no está inicializado todavía.");
-      return;
-    }
-
-    // 🧾 Última factura guardada (formato local)
-    const ultimaFactura = facturas[0]; // usas unshift() → primer elemento
-    if (!ultimaFactura) {
-      console.warn("⚠️ No hay factura disponible para subir.");
-      return;
-    }
-
-    // 🧩 Extraer datos planos (cliente/proveedor)
-    const cliente = ultimaFactura.cliente || {};
-    const proveedor = ultimaFactura.proveedor || {};
-
-    const { data, error } = await supabase
-      .from('facturas')
-      .upsert([{
-        id: ultimaFactura.id || crypto.randomUUID(),
-        numero: ultimaFactura.numero,
-        cliente: cliente.nombre || '',
-        nif: cliente.nif || '',
-        direccion: cliente.dir || '',
-        telefono: cliente.tel || '',
-        email: cliente.email || '',
-        fecha: ultimaFactura.fecha || new Date().toISOString(),
-        total: ultimaFactura.totals?.total || 0,
-        estado: ultimaFactura.estado || 'Pendiente',
-        updated_at: new Date().toISOString()
-      }]);
-
-    if (error) {
-      console.error("❌ Error al subir la factura:", error.message || error);
-    } else {
-      console.log("✅ Factura subida correctamente a Supabase:", data);
-    }
-
-  } catch (e) {
-    console.error("❌ Error en saveFacturas:", e.message || e);
-  }
-}
-
+/* ---------- GUARDAR / NUEVA / PDF ---------- */
+function genNumFactura(){ const d=new Date(), pad=n=>String(n).padStart(2,'0'); return `FA-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`; }
+function saveFacturas(){ save(K_FACTURAS, facturas); }
 
 $('#btnGuardar')?.addEventListener('click', ()=>{
   const ls=captureLineas(); if(ls.length===0){ alert('Añade al menos una línea.'); return; }
@@ -984,110 +946,6 @@ function drawResumen(){ drawKPIs(); }
   const guardadoDark = localStorage.getItem('arslan_dark') === 'true';
   aplicarTema(guardadoTema);
   if(guardadoDark) toggleDark();
-/* ===========================================================
-   🧾 FUNCIÓN GLOBAL: renderAll()
-   - Refresca toda la interfaz principal
-   - Rellena listas, selects, y vistas con datos locales
-   =========================================================== */
-function renderAll() {
-  try {
-    console.log("🔄 Ejecutando renderAll universal...");
-
-    /* ---------- CLIENTES ---------- */
-    const clientes = JSON.parse(localStorage.getItem("clientes") || "[]");
-    const contClientes = document.querySelector("#clientes-lista");
-    if (contClientes) {
-      contClientes.innerHTML = clientes.length
-        ? clientes
-            .map(
-              (c) => `
-              <div class="cliente-item">
-                <strong>${c.nombre}</strong><br>
-                <small>${c.nif || ""}</small><br>
-                <small>${c.direccion || ""}</small><br>
-                <small>${c.telefono || ""}</small><br>
-                <small>${c.email || ""}</small>
-              </div>`
-            )
-            .join("")
-        : "<p class='muted'>Sin clientes registrados</p>";
-    }
-
-    /* ---------- SELECT CLIENTES (para facturas) ---------- */
-    if (typeof renderClientesSelect === "function") {
-      renderClientesSelect();
-    } else {
-      console.warn("⚠️ renderClientesSelect no definida, usando fallback.");
-      const select = document.querySelector("#factura-cliente");
-      if (select) {
-        select.innerHTML = clientes
-          .map((c) => `<option value="${c.id}">${c.nombre}</option>`)
-          .join("");
-      }
-    }
-
-    /* ---------- PRODUCTOS ---------- */
-    const productos = JSON.parse(localStorage.getItem("productos") || "[]");
-    const contProductos = document.querySelector("#productos-lista");
-    if (contProductos) {
-      contProductos.innerHTML = productos.length
-        ? productos
-            .map(
-              (p) => `
-              <div class="producto-item">
-                <strong>${p.nombre}</strong><br>
-                <small>${p.mode || "—"} | ${p.price || 0} €/u</small>
-              </div>`
-            )
-            .join("")
-        : "<p class='muted'>Sin productos registrados</p>";
-    }
-
-    /* ---------- FACTURAS ---------- */
-    const facturas = JSON.parse(localStorage.getItem("facturas") || "[]");
-    const contFacturas = document.querySelector("#facturas-lista");
-    if (contFacturas) {
-      contFacturas.innerHTML = facturas.length
-        ? facturas
-            .map(
-              (f) => `
-              <div class="factura-item">
-                <strong>${f.numero}</strong><br>
-                <small>Cliente: ${f.clienteNombre || "—"}</small><br>
-                <small>Total: ${(f.totalConIVA || f.total || 0).toFixed(2)} €</small><br>
-                <small>Fecha: ${new Date(f.ts).toLocaleDateString()}</small>
-              </div>`
-            )
-            .join("")
-        : "<p class='muted'>Sin facturas generadas</p>";
-    }
-
-    /* ---------- PRICE HISTORIAL ---------- */
-    const priceHist = JSON.parse(localStorage.getItem("priceHist") || "{}");
-    const contHist = document.querySelector("#priceHist-lista");
-    if (contHist) {
-      const entries = Object.entries(priceHist);
-      contHist.innerHTML = entries.length
-        ? entries
-            .map(([prod, hist]) => {
-              const last = hist[hist.length - 1];
-              return `
-                <div class="historial-item">
-                  <strong>${prod}</strong><br>
-                  <small>Último precio: ${last?.price || 0} €</small>
-                </div>`;
-            })
-            .join("")
-        : "<p class='muted'>Sin historial de precios</p>";
-    }
-
-    console.log("✅ renderAll completado correctamente.");
-  } catch (err) {
-    console.error("❌ Error en renderAll:", err);
-  }
-}
-
-
    /* ===========================================================
    🔁 SINCRONIZACIÓN BIDIRECCIONAL CON SUPABASE
    - Descarga datos al abrir.
@@ -1096,98 +954,25 @@ function renderAll() {
    =========================================================== */
 (async function syncBidireccional() {
   console.log('☁️ Iniciando sincronización bidireccional...');
-  window.syncBidireccional = syncBidireccional;
-
 
   // ✅ Tablas que queremos sincronizar
-// ✅ Tablas que queremos sincronizar
-const TABLAS = {
-  clientes: { 
-    key: K_CLIENTES, 
-    mapOut: c => ({
-      id: c.id,
-      nombre: c.nombre,
-      direccion: c.direccion, // ✅ corregido
-      nif: c.nif,
-      telefono: c.telefono,   // ✅ corregido
-      email: c.email          // ✅ corregido
-    }), 
-    mapIn: r => ({
-      id: r.id || uid(),
-      nombre: r.nombre || '',
-      direccion: r.direccion || '', // ✅ corregido
-      nif: r.nif || '',
-      telefono: r.telefono || '',   // ✅ corregido
-      email: r.email || ''          // ✅ corregido
-    })
-  },
-
-  productos: {
-    key: K_PRODUCTOS,
-    mapOut: p => ({
-      id: p.id,
-      nombre: p.nombre,
-      precio: p.precio,
-      unidad: p.unidad,
-      categoria: p.categoria,
-      updated_at: p.updated_at || new Date().toISOString()
-    }),
-    mapIn: r => ({
-      id: r.id || uid(),
-      nombre: r.nombre || '',
-      precio: r.precio || 0,
-      unidad: r.unidad || '',
-      categoria: r.categoria || '',
-      updated_at: r.updated_at || new Date().toISOString()
-    })
-  },
-
-  facturas: {
-    key: K_FACTURAS,
-    mapOut: f => ({
-      id: f.id,
-      numero: f.numero,
-      cliente: f.cliente,
-      nif: f.nif,
-      direccion: f.direccion, // ✅ corregido
-      telefono: f.telefono,   // ✅ corregido
-      email: f.email,         // ✅ corregido
-      fecha: f.fecha,
-      total: f.total,
-      estado: f.estado
-    }),
-    mapIn: r => ({
-      id: r.id || uid(),
-      numero: r.numero || '',
-      cliente: r.cliente || '',
-      nif: r.nif || '',
-      direccion: r.direccion || '', // ✅ corregido
-      telefono: r.telefono || '',   // ✅ corregido
-      email: r.email || '',         // ✅ corregido
-      fecha: r.fecha || new Date().toISOString(),
-      total: r.total || 0,
-      estado: r.estado || 'Pendiente'
-    })
-  }
-};
-
-
-/* ===========================================================
-   🧱 FIX UNIVERSAL ARR.MAP — evita que se rompa syncExtendida
-   =========================================================== */
-function safeMap(arr, fn, thisArg) {
-  try {
-    if (!Array.isArray(arr)) {
-      if (arr && typeof arr === 'object') return Object.values(arr).map(fn, thisArg);
-      return [];
-    }
-    return arr.map(fn, thisArg);
-  } catch (e) {
-    console.warn("⚠️ safeMap aplicado:", e);
-    return [];
-  }
-}
-
+  const TABLAS = {
+    clientes: { key: K_CLIENTES, mapOut: c => ({
+      id: c.id, nombre: c.nombre, direccion: c.dir, nif: c.nif, telefono: c.tel
+    }), mapIn: r => ({
+      id: r.id || uid(), nombre: r.nombre || '', dir: r.direccion || '',
+      nif: r.nif || '', tel: r.telefono || '', email: r.email || ''
+    }) },
+    facturas: { key: K_FACTURAS, mapOut: f => ({
+      numero: f.numero, fecha: f.fecha, cliente: f.cliente?.nombre,
+      total: f.totals?.total || 0, estado: f.estado
+    }), mapIn: r => r },
+    productos: { key: K_PRODUCTOS, mapOut: p => ({
+      name: p.name, mode: p.mode, boxKg: p.boxKg, price: p.price, origin: p.origin
+    }), mapIn: r => ({
+      name: r.name, mode: r.mode, boxKg: r.boxKg, price: r.price, origin: r.origin
+    }) }
+  };
 
   // 🔁 Función para sincronizar una tabla
   async function syncTable(nombre, cfg) {
@@ -1233,35 +1018,8 @@ function safeMap(arr, fn, thisArg) {
     for (const [nombre, cfg] of Object.entries(TABLAS)) {
       await syncTable(nombre, cfg);
     }
-    // --- DESCARGA GLOBAL DESDE SUPABASE A LOCAL ---
-for (const tabla of ['clientes', 'facturas', 'productos', 'pricehist']) {
-  console.log(`⬇️ Descargando datos actualizados de ${tabla}...`);
-  const { data: dataRemota, error: errRemoto } = await supabase.from(tabla).select('*');
-  if (errRemoto) {
-    console.warn(`⚠️ Error al descargar ${tabla}:`, errRemoto.message);
-    continue;
-  }
-  if (dataRemota && dataRemota.length) {
-    localStorage.setItem(
-      {
-        clientes: K_CLIENTES,
-        productos: K_PRODUCTOS,
-        facturas: K_FACTURAS,
-        pricehist: K_PRICEHIST
-      }[tabla],
-      JSON.stringify(dataRemota)
-    );
-    console.log(`✅ ${tabla} descargada (${dataRemota.length} registros)`);
-  }
-}
-
-console.log('✨ Sincronización bidireccional completada');
-if (typeof renderAll === 'function') {
-  renderAll();
-} else {
-  console.warn('⚠️ renderAll aún no estaba definido al finalizar la sincronización.');
-}
-
+    console.log('✨ Sincronización bidireccional completada');
+    renderAll();
   } else {
     console.log('📴 Sin conexión. Se usará solo la base local.');
   }
@@ -1272,77 +1030,15 @@ if (typeof renderAll === 'function') {
     syncBidireccional();
   });
 })();
-  /* ===========================================================
-   🩹 FIX UNIVERSAL — Evitar "arr.map is not a function"
-   =========================================================== */
-function safeArray(input) {
-  if (Array.isArray(input)) return input;
-  if (input === null || input === undefined) return [];
-  if (typeof input === "object") return Object.values(input);
-  return [input];
-}
-
-// 🔁 Reemplazo global de map para asegurar arrays
-const _oldMap = Array.prototype.map;
-Array.prototype.map = function(fn, thisArg) {
-  try {
-    return _oldMap.call(this, fn, thisArg);
-  } catch (e) {
-    console.warn("⚠️ safeArray.map aplicado:", e);
-    return safeArray(this).map(fn, thisArg);
-  }
-};
-/* ===========================================================
-   🩹 FIX ARR.MAP — Protección universal de arrays
-   =========================================================== */
-if (!Array.prototype.safeMap) {
-  Array.prototype.safeMap = function (fn, thisArg) {
-    try {
-      if (!Array.isArray(this)) return [];
-      return this.map(fn, thisArg);
-    } catch (e) {
-      console.warn("⚠️ safeMap aplicado:", e);
-      return [];
-    }
-  };
-}
-
 /* ===========================================================
    📈 SINCRONIZACIÓN EXTENDIDA — priceHist, KPIs, Pendientes
    =========================================================== */
-/* ===========================================================
-   🔁 SINCRONIZACIÓN EXTENDIDA CON SUPABASE (versión segura)
-   =========================================================== */
 (async function syncExtendida() {
-  console.log("📊 Iniciando sincronización extendida...");
-  let facturas = [];
-
-  // 🧱 FIX universal para arr.map / flatMap
-  const safeMap = (arr, fn) => {
-    if (!Array.isArray(arr)) return [];
-    try { return arr.map(fn); } catch (e) { console.warn("⚠️ safeMap:", e); return []; }
-  };
-
-  // Espera a que syncBidireccional exista antes de llamarla
-  window.addEventListener("load", async () => {
-    console.log("☁️ Iniciando sincronización bidireccional...");
-    if (typeof syncBidireccional === "function") {
-      await syncBidireccional();
-    } else {
-      console.warn("⚠️ syncBidireccional no lista. Reintentando en 2s...");
-      setTimeout(async () => {
-        if (typeof syncBidireccional === "function") {
-          await syncBidireccional();
-        } else {
-          console.error("❌ No se encontró syncBidireccional tras el reintento.");
-        }
-      }, 2000);
-    }
-  });
+  console.log('📊 Iniciando sincronización extendida...');
 
   if (!navigator.onLine) {
-    console.log("📴 Sin conexión. Esperando reconexión para sincronizar...");
-    window.addEventListener("online", syncExtendida, { once: true });
+    console.log('📴 Sin conexión, esperando para sincronizar resúmenes.');
+    window.addEventListener('online', syncExtendida, { once: true });
     return;
   }
 
@@ -1350,47 +1046,42 @@ if (!Array.prototype.safeMap) {
     // === HISTORIAL DE PRECIOS (priceHist) ===
     const localHist = load(K_PRICEHIST, {});
     const localHistList = Object.entries(localHist).flatMap(([name, arr]) =>
-      safeMap(arr, h => ({ producto: name, precio: h.price, fecha: h.date }))
+      arr.map(h => ({ producto: name, precio: h.price, fecha: h.date }))
     );
 
     const { data: cloudHist, error: errHist } = await supabase
-      .from("pricehist")
-      .select("*");
+      .from('pricehist')
+      .select('*');
 
-    if (!errHist && Array.isArray(cloudHist)) {
+    if (!errHist) {
+      // Combinar sin duplicar
       const merged = [...cloudHist];
       for (const h of localHistList) {
-        const exists = merged.some(
-          r =>
-            r.producto === h.producto &&
-            Math.abs(new Date(r.fecha) - new Date(h.fecha)) < 1000
+        const exists = merged.some(r =>
+          r.producto === h.producto && Math.abs(new Date(r.fecha) - new Date(h.fecha)) < 1000
         );
         if (!exists) merged.push(h);
       }
-
+      // Subir los nuevos
       for (const h of merged) {
-        const found = cloudHist.find(
-          r => r.producto === h.producto && r.fecha === h.fecha
+        const found = cloudHist.find(r =>
+          r.producto === h.producto && r.fecha === h.fecha
         );
         if (!found) {
-          const { error: upErr } = await supabase.from("pricehist").insert([h]);
-          if (upErr)
-            console.warn("⚠️ No se pudo subir a priceHist:", upErr.message);
+          const { error: upErr } = await supabase.from('pricehist').insert([h]);
+          if (upErr) console.warn('⚠️ No se pudo subir a priceHist:', upErr.message);
         }
       }
-      console.log(`✅ priceHist sincronizado (${merged.length} registros).`);
+      console.log(`✅ priceHist sincronizado (${merged.length} registros)`);
     } else {
-      console.warn("⚠️ Error al sincronizar priceHist:", errHist?.message);
+      console.warn('⚠️ Error al sincronizar priceHist:', errHist.message);
     }
 
     // === RESÚMENES / KPIs ===
     const totalFacturas = facturas.length;
-    const totalClientes = typeof clientes !== "undefined" ? clientes.length : 0;
-    const ventasTotales = facturas.reduce(
-      (a, f) => a + (f.totals?.total || 0),
-      0
-    );
-    const pendientes = facturas.filter(f => f.estado !== "pagado").length;
+    const totalClientes = clientes.length;
+    const ventasTotales = facturas.reduce((a,f)=>a+(f.totals?.total||0),0);
+    const pendientes = facturas.filter(f=>f.estado!=='pagado').length;
 
     const resumenData = {
       total_clientes: totalClientes,
@@ -1401,42 +1092,39 @@ if (!Array.prototype.safeMap) {
     };
 
     const { error: resumenErr } = await supabase
-      .from("resumenes")
-      .upsert(resumenData, { onConflict: ["fecha_sync"] });
+      .from('resumenes')
+      .upsert(resumenData, { onConflict: ['fecha_sync'] });
 
     if (!resumenErr) {
-      console.log("✅ Resumen de KPIs sincronizado con Supabase.");
+      console.log('✅ Resumen de KPIs sincronizado con Supabase');
     } else {
-      console.warn("⚠️ Error al subir resumen:", resumenErr.message);
+      console.warn('⚠️ Error al subir resumen:', resumenErr.message);
     }
 
     // === PENDIENTES ===
     const pendientesLista = facturas
-      .filter(f => f.estado !== "pagado")
+      .filter(f => f.estado !== 'pagado')
       .map(f => ({
-        cliente: f.cliente?.nombre || "(sin cliente)",
+        cliente: f.cliente?.nombre || '(sin cliente)',
         pendiente: f.totals?.pendiente || 0,
         fecha: f.fecha
       }));
 
     const { error: pendErr } = await supabase
-      .from("pendientes")
+      .from('pendientes')
       .upsert(pendientesLista);
 
     if (!pendErr) {
-      console.log(
-        `✅ Pendientes sincronizados (${pendientesLista.length} registros).`
-      );
+      console.log(`✅ Pendientes sincronizados (${pendientesLista.length} registros)`);
     } else {
-      console.warn("⚠️ Error al subir pendientes:", pendErr.message);
+      console.warn('⚠️ Error al subir pendientes:', pendErr.message);
     }
 
-    console.log("✨ Sincronización extendida completada correctamente.");
+    console.log('✨ Sincronización extendida completada correctamente');
   } catch (e) {
-    console.error("❌ Error en sincronización extendida:", e.message || e);
+    console.error('❌ Error en sincronización extendida:', e.message);
   }
 })();
-
 // --- BOTÓN: Añadir 4 % al subtotal ---
 document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
   const subtotal = unMoney(document.getElementById('subtotal').textContent);
@@ -1449,869 +1137,6 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
   document.getElementById('total').textContent = money(total);
 
   console.log(`✅ IVA (4%) añadido: ${money(iva)} — Nuevo total: ${money(total)}`);
-}); // ← 💥 esta llave y paréntesis cierran el evento
-
-// ✅ Cierre final del bloque principal
-})();
-/* ===========================================================
-   🌍 SYNC UNIVERSAL — FACTURAS ENTRE DISPOSITIVOS (plug-in)
-   Sin tocar el resto del código.
-   =========================================================== */
-(async function syncUniversal() {
-  console.log("🔁 SYNC UNIVERSAL iniciado…");
-
-  // Espera 3 segundos para que la app cargue completamente
-  await new Promise(r => setTimeout(r, 3000));
-
-  if (!navigator.onLine) {
-    console.warn("📴 Sin conexión. Reintentará al reconectarse.");
-    window.addEventListener("online", syncUniversal, { once: true });
-    return;
-  }
-
-  try {
-    const { data, error } = await supabase.from("facturas").select("*");
-    if (error) throw error;
-
-    if (data && data.length) {
-      console.log(`⬇️ Descargando ${data.length} facturas desde Supabase…`);
-      // reconstruye las facturas completas si vienen como JSON en campo 'datos'
-      const facturasCloud = data.map(r => {
-        try {
-          return r.datos ? JSON.parse(r.datos) : r;
-        } catch {
-          return r;
-        }
-      });
-
-      // guarda en localStorage sin tocar lo anterior
-      localStorage.setItem(K_FACTURAS, JSON.stringify(facturasCloud));
-      console.log("✅ Facturas actualizadas en localStorage.");
-
-      // refresca la vista si existe renderAll()
-      if (typeof renderAll === "function") renderAll();
-    } else {
-      console.log("ℹ️ No hay facturas nuevas en Supabase.");
-    }
-  } catch (e) {
-    console.error("❌ Error en SYNC UNIVERSAL:", e.message);
-  }
-
-  // 🔔 Suscripción en vivo: cuando haya cambios en Supabase, vuelve a sincronizar
-  try {
-    supabase
-      .channel("facturas_live")
-      .on(
-        "postgres_changes",
-        { event: "*", schema: "public", table: "facturas" },
-        payload => {
-          console.log("📡 Cambio detectado en Supabase → actualizando…", payload.eventType);
-          syncUniversal(); // vuelve a ejecutar
-        }
-      )
-      .subscribe();
-    console.log("📡 Escuchando cambios en tiempo real de facturas.");
-  } catch (e) {
-    console.warn("⚠️ Live-sync no disponible:", e.message);
-  }
-})();
-/* ===========================================================
-   🧩 FIX SEGURO — Evitar error arr.map is not a function
-   =========================================================== */
-(function safePriceHistFix() {
-  const origLoad = window.load;
-  window.load = function (k, fallback) {
-    const v = origLoad(k, fallback);
-    if (k === K_PRICEHIST && typeof v === 'object') {
-      // Asegura que todos los valores sean arrays válidos
-      for (const key in v) {
-        if (!Array.isArray(v[key])) v[key] = [];
-      }
-    }
-    return v;
-  };
-  console.log("🩹 FIX activo: priceHist seguro (arrays garantizados).");
-})();
-/* 🩹 FIX: Evita error arr.map is not a function (priceHist corrupto) */
-(function(){
-  const fix = localStorage.getItem('arslan_v104_pricehist');
-  if(fix){
-    try{
-      const data = JSON.parse(fix);
-      for(const k in data){ if(!Array.isArray(data[k])) data[k]=[]; }
-      localStorage.setItem('arslan_v104_pricehist', JSON.stringify(data));
-      console.log("✅ priceHist reparado automáticamente.");
-    }catch(e){ console.warn("⚠️ priceHist corrupto, se omitió reparación."); }
-  }
-})();
-/* 🕓 FIX: Esperar a que renderAll exista antes de refrescar (versión silenciosa) */
-(function waitRenderAll(){
-  if(typeof renderAll === "function"){
-    console.log("✅ renderAll listo — refrescando vista una sola vez.");
-    renderAll();
-  } else {
-    setTimeout(waitRenderAll, 1500);
-  }
-})();
-/* ===========================================================
-   🩹 FIX DEFINITIVO — arr.map is not a function
-   Limpia y normaliza todos los registros locales y en nube
-   =========================================================== */
-(async function fixPriceHistArr() {
-  console.log("🧠 Revisando coherencia de priceHist...");
-  try {
-    // --- Reparar local ---
-    const key = 'arslan_v104_pricehist';
-    const data = JSON.parse(localStorage.getItem(key) || '{}');
-    for (const k in data) {
-      if (!Array.isArray(data[k])) data[k] = [];
-    }
-    localStorage.setItem(key, JSON.stringify(data));
-    console.log("✅ priceHist local reparado");
-
-    // --- Reparar remoto ---
-    if (typeof supabase !== "undefined") {
-      const { data: cloud, error } = await supabase.from('pricehist').select('*');
-      if (!error && Array.isArray(cloud)) {
-        const clean = cloud.filter(r => typeof r.precio === 'number' && typeof r.producto === 'string');
-        if (clean.length !== cloud.length) {
-          console.warn(`⚠️ Eliminando ${cloud.length - clean.length} registros inválidos en nube...`);
-          const nombresInvalidos = cloud
-            .filter(r => typeof r.precio !== 'number' || !r.producto)
-            .map(r => r.producto || '(sin nombre)');
-          console.warn("⚠️ Productos afectados:", nombresInvalidos);
-        }
-      }
-    }
-    console.log("✨ FIX de priceHist completado sin errores.");
-  } catch (e) {
-    console.error("❌ Error en fixPriceHistArr:", e.message);
-  }
-})();
-/* ===========================================================
-   🔄 SINCRONIZACIÓN EN TIEMPO REAL — CLIENTES Y PRODUCTOS
-   =========================================================== */
-(function setupRealtimeSync() {
-  if (typeof supabase === "undefined") {
-    console.warn("⚠️ Supabase no está definido. Reintento en 2s...");
-    setTimeout(setupRealtimeSync, 2000);
-    return;
-  }
-
-  console.log("📡 Activando sincronización en tiempo real para clientes y productos...");
-
-  // --- CLIENTES ---
-  supabase
-    .channel('rt-clientes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, payload => {
-      console.log("👥 Actualización detectada en CLIENTES:", payload.eventType, payload.new?.nombre || payload.old?.nombre);
-
-      // 🔄 Descargar todo nuevamente y actualizar interfaz
-      supabase.from('clientes').select('*').then(({ data, error }) => {
-        if (!error && Array.isArray(data)) {
-          localStorage.setItem('arslan_v104_clientes', JSON.stringify(data.map(r => ({
-            id: r.id || crypto.randomUUID(),
-            nombre: r.nombre || '',
-            dir: r.direccion || '',
-            nif: r.nif || '',
-            tel: r.telefono || '',
-            email: r.email || ''
-          }))));
-          console.log(`✅ Clientes sincronizados en tiempo real (${data.length} registros)`);
-          if (typeof renderAll === "function") renderAll();
-        }
-      });
-    })
-    .subscribe();
-
-  // --- PRODUCTOS ---
-  supabase
-    .channel('rt-productos')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, payload => {
-      console.log("🍏 Actualización detectada en PRODUCTOS:", payload.eventType, payload.new?.name || payload.old?.name);
-
-      // 🔄 Descargar todo nuevamente y actualizar interfaz
-      supabase.from('productos').select('*').then(({ data, error }) => {
-        if (!error && Array.isArray(data)) {
-          localStorage.setItem('arslan_v104_productos', JSON.stringify(data.map(r => ({
-            name: r.name || '',
-            mode: r.mode || '',
-            boxkg: r.boxkg || null,
-            price: r.price || null,
-            origin: r.origin || ''
-          }))));
-          console.log(`✅ Productos sincronizados en tiempo real (${data.length} registros)`);
-          if (typeof renderAll === "function") renderAll();
-        }
-      });
-    })
-    .subscribe();
-
-  console.log("✨ Escuchando cambios en tiempo real de CLIENTES y PRODUCTOS.");
-})();
-/* ===========================================================
-   🔄 SINCRONIZACIÓN EN TIEMPO REAL — CLIENTES Y PRODUCTOS + TOAST
-   =========================================================== */
-(function setupRealtimeSync() {
-  if (typeof supabase === "undefined") {
-    console.warn("⚠️ Supabase no está definido. Reintento en 2s...");
-    setTimeout(setupRealtimeSync, 2000);
-    return;
-  }
-
-  console.log("📡 Activando sincronización en tiempo real para CLIENTES y PRODUCTOS...");
-
-  // --- Función para mostrar notificación tipo toast ---
-  function showToast(msg, color = "#16a34a") {
-    const toast = document.createElement("div");
-    toast.textContent = msg;
-    toast.style.position = "fixed";
-    toast.style.bottom = "25px";
-    toast.style.left = "50%";
-    toast.style.transform = "translateX(-50%)";
-    toast.style.background = color;
-    toast.style.color = "#fff";
-    toast.style.padding = "10px 18px";
-    toast.style.borderRadius = "10px";
-    toast.style.fontSize = "15px";
-    toast.style.fontFamily = "Poppins, sans-serif";
-    toast.style.boxShadow = "0 4px 10px rgba(0,0,0,0.15)";
-    toast.style.zIndex = "9999";
-    toast.style.opacity = "0";
-    toast.style.transition = "opacity 0.3s ease";
-    document.body.appendChild(toast);
-    setTimeout(() => (toast.style.opacity = "1"), 50);
-    setTimeout(() => {
-      toast.style.opacity = "0";
-      setTimeout(() => toast.remove(), 500);
-    }, 3000);
-  }
-
-  // --- CLIENTES ---
-  supabase
-    .channel('rt-clientes')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'clientes' }, payload => {
-      console.log("👥 Actualización detectada en CLIENTES:", payload.eventType, payload.new?.nombre || payload.old?.nombre);
-
-      showToast(`👥 Clientes actualizados (${payload.eventType})`);
-
-      supabase.from('clientes').select('*').then(({ data, error }) => {
-        if (!error && Array.isArray(data)) {
-          localStorage.setItem('arslan_v104_clientes', JSON.stringify(data.map(r => ({
-            id: r.id || crypto.randomUUID(),
-            nombre: r.nombre || '',
-            dir: r.direccion || '',
-            nif: r.nif || '',
-            tel: r.telefono || '',
-            email: r.email || ''
-          }))));
-          console.log(`✅ Clientes sincronizados en tiempo real (${data.length} registros)`);
-          if (typeof renderAll === "function") renderAll();
-        }
-      });
-    })
-    .subscribe();
-
-  // --- PRODUCTOS ---
-  supabase
-    .channel('rt-productos')
-    .on('postgres_changes', { event: '*', schema: 'public', table: 'productos' }, payload => {
-      console.log("🍏 Actualización detectada en PRODUCTOS:", payload.eventType, payload.new?.name || payload.old?.name);
-
-      showToast(`🍏 Productos actualizados (${payload.eventType})`);
-
-      supabase.from('productos').select('*').then(({ data, error }) => {
-        if (!error && Array.isArray(data)) {
-          localStorage.setItem('arslan_v104_productos', JSON.stringify(data.map(r => ({
-            name: r.name || '',
-            mode: r.mode || '',
-            boxkg: r.boxkg || null,
-            price: r.price || null,
-            origin: r.origin || ''
-          }))));
-          console.log(`✅ Productos sincronizados en tiempo real (${data.length} registros)`);
-          if (typeof renderAll === "function") renderAll();
-        }
-      });
-    })
-    .subscribe();
-
-  console.log("✨ Escuchando cambios en tiempo real de CLIENTES y PRODUCTOS.");
-})();
-/* ===========================================================
-   ☁️ AUTO SYNC — Carga completa desde Supabase al abrir la app
-   =========================================================== */
-(async function autoSyncAlAbrir() {
-  console.log("🔁 Iniciando carga inicial desde Supabase...");
-
-  // Espera a que supabase esté disponible
-  let intentos = 0;
-  while (typeof supabase === "undefined" && intentos < 10) {
-    await new Promise(r => setTimeout(r, 500));
-    intentos++;
-  }
-
-  if (typeof supabase === "undefined") {
-    console.warn("⚠️ Supabase no disponible, reintenta al recargar.");
-    return;
-  }
-
-  try {
-    // === CLIENTES ===
-    const { data: clientes, error: errC } = await supabase.from("clientes").select("*");
-    if (!errC && Array.isArray(clientes)) {
-      localStorage.setItem("arslan_v104_clientes", JSON.stringify(clientes));
-      console.log(`✅ Clientes actualizados (${clientes.length})`);
-    } else console.warn("⚠️ No se pudieron descargar clientes:", errC?.message);
-
-    // === PRODUCTOS ===
-    const { data: productos, error: errP } = await supabase.from("productos").select("*");
-    if (!errP && Array.isArray(productos)) {
-      localStorage.setItem("arslan_v104_productos", JSON.stringify(productos));
-      console.log(`🍏 Productos actualizados (${productos.length})`);
-    } else console.warn("⚠️ No se pudieron descargar productos:", errP?.message);
-
-    // === FACTURAS ===
-    const { data: facturas, error: errF } = await supabase.from("facturas").select("*");
-    if (!errF && Array.isArray(facturas)) {
-      localStorage.setItem("arslan_v104_facturas", JSON.stringify(facturas));
-      console.log(`🧾 Facturas actualizadas (${facturas.length})`);
-    } else console.warn("⚠️ No se pudieron descargar facturas:", errF?.message);
-
-    console.log("✨ Sincronización inicial desde Supabase completada correctamente.");
-
-    // Si existe renderAll(), actualiza toda la interfaz visual
-    if (typeof renderAll === "function") {
-      renderAll();
-      console.log("🔄 Interfaz actualizada con datos remotos.");
-    } else {
-      console.log("ℹ️ renderAll aún no cargado, interfaz se actualizará luego.");
-    }
-
-  } catch (e) {
-    console.error("❌ Error durante carga inicial:", e.message);
-  }
-})();
-/* ===========================================================
-   ☁️ AUTO-SYNC GARANTIZADO — Cargar desde Supabase SIEMPRE al abrir
-   =========================================================== */
-window.addEventListener("load", async () => {
-  console.log("🚀 Cargando datos iniciales desde Supabase al abrir la app...");
-
-  // Espera hasta que Supabase esté disponible (máximo 10 intentos)
-  let intentos = 0;
-  while (typeof supabase === "undefined" && intentos < 10) {
-    await new Promise(r => setTimeout(r, 800));
-    intentos++;
-  }
-
-  if (typeof supabase === "undefined") {
-    console.warn("⚠️ Supabase aún no está listo. Recarga la app.");
-    return;
-  }
-
-  try {
-    // --- CLIENTES ---
-    const { data: clientes, error: errC } = await supabase.from("clientes").select("*");
-    if (!errC && Array.isArray(clientes)) {
-      localStorage.setItem("arslan_v104_clientes", JSON.stringify(clientes));
-      console.log(`✅ CLIENTES cargados: ${clientes.length}`);
-    }
-
-    // --- PRODUCTOS ---
-    const { data: productos, error: errP } = await supabase.from("productos").select("*");
-    if (!errP && Array.isArray(productos)) {
-      localStorage.setItem("arslan_v104_productos", JSON.stringify(productos));
-      console.log(`🍏 PRODUCTOS cargados: ${productos.length}`);
-    }
-
-    // --- FACTURAS ---
-    const { data: facturas, error: errF } = await supabase.from("facturas").select("*");
-    if (!errF && Array.isArray(facturas)) {
-      localStorage.setItem("arslan_v104_facturas", JSON.stringify(facturas));
-      console.log(`🧾 FACTURAS cargadas: ${facturas.length}`);
-    }
-
-    console.log("☁️ Auto-sync inicial completado correctamente ✅");
-
-    // 🔄 Actualiza interfaz si renderAll está definido
-    if (typeof renderAll === "function") {
-      renderAll();
-      console.log("🖥️ Interfaz actualizada con datos remotos.");
-    }
-  } catch (e) {
-    console.error("❌ Error al sincronizar desde Supabase:", e.message);
-  }
-});
-/* ===========================================================
-   🔁 FIX FINAL — Ejecuta renderAll() cuando esté listo
-   =========================================================== */
-(function ensureRenderAll() {
-  console.log("🧩 Esperando a que renderAll esté disponible...");
-  let tries = 0;
-
-  const interval = setInterval(() => {
-    tries++;
-    if (typeof renderAll === "function") {
-      clearInterval(interval);
-      console.log("✅ renderAll detectado, actualizando interfaz...");
-      try {
-        renderAll();
-        console.log("🖥️ Interfaz sincronizada correctamente con Supabase.");
-      } catch (e) {
-        console.error("❌ Error ejecutando renderAll:", e);
-      }
-    } else if (tries > 20) {
-      clearInterval(interval);
-      console.warn("⚠️ renderAll nunca estuvo disponible tras 20 intentos.");
-    }
-  }, 1000);
-})();
-/* ===========================================================
-   🧩 FIX DEFINITIVO — Reintenta renderAll cuando esté disponible
-   =========================================================== */
-(async function waitForRenderAll() {
-  console.log("🕓 Esperando a que renderAll esté disponible para refrescar interfaz...");
-
-  for (let i = 0; i < 30; i++) {
-    await new Promise(r => setTimeout(r, 1000));
-    if (typeof renderAll === "function") {
-      try {
-        console.log("✅ renderAll detectado. Actualizando interfaz con datos Supabase...");
-        renderAll();
-        console.log("🎉 Interfaz actualizada correctamente.");
-      } catch (e) {
-        console.error("❌ Error ejecutando renderAll:", e);
-      }
-      return;
-    }
-  }
-
-  console.warn("⚠️ No se detectó renderAll después de 30 segundos. Puede ser necesario recargar la app.");
-})();
-/* ===========================================================
-   🔄 SYNC REALTIME — Mantiene todos los dispositivos actualizados
-   =========================================================== */
-(async function enableRealtimeSync() {
-  console.log("📡 Activando sincronización en tiempo real global...");
-
-  // Espera a que Supabase y renderAll estén listos
-  for (let i = 0; i < 20; i++) {
-    if (typeof supabase !== "undefined" && typeof renderAll === "function") break;
-    await new Promise(r => setTimeout(r, 1000));
-  }
-  if (typeof supabase === "undefined") return console.warn("⚠️ Supabase aún no cargado.");
-  if (typeof renderAll !== "function") return console.warn("⚠️ renderAll aún no definido.");
-
-  // Escuchar cambios de tablas principales
-  const tables = ["clientes", "productos", "facturas"];
-
-  tables.forEach(tbl => {
-    try {
-      supabase
-        .channel(`realtime:${tbl}`)
-        .on(
-          "postgres_changes",
-          { event: "*", schema: "public", table: tbl },
-          payload => {
-            console.log(`📢 Cambio detectado en ${tbl}:`, payload.eventType, payload.new || payload.old);
-            // Lógica de actualización local mínima
-            const key = `arslan_v104_${tbl}`;
-            const local = JSON.parse(localStorage.getItem(key) || "[]");
-
-            if (payload.eventType === "INSERT" && payload.new) {
-              local.push(payload.new);
-            } else if (payload.eventType === "UPDATE" && payload.new) {
-              const idx = local.findIndex(i => i.id === payload.new.id);
-              if (idx >= 0) local[idx] = payload.new;
-            } else if (payload.eventType === "DELETE" && payload.old) {
-              const idx = local.findIndex(i => i.id === payload.old.id);
-              if (idx >= 0) local.splice(idx, 1);
-            }
-
-            localStorage.setItem(key, JSON.stringify(local));
-            renderAll(); // refresca la interfaz
-          }
-        )
-        .subscribe(status => console.log(`✅ Canal realtime activo para ${tbl}`, status));
-    } catch (e) {
-      console.error(`❌ Error activando realtime para ${tbl}:`, e);
-    }
-  });
-
-  console.log("✨ Realtime activado correctamente para CLIENTES, PRODUCTOS y FACTURAS.");
-})();
-/* ===========================================================
-   🧠 REFRESCO FORZADO — Garantiza renderAll en cada apertura
-   =========================================================== */
-window.addEventListener('load', () => {
-  setTimeout(() => {
-    if (typeof renderAll === "function") {
-      console.log("🔄 Refrescando interfaz tras carga completa...");
-      renderAll();
-    } else {
-      console.warn("⚠️ renderAll aún no disponible tras load, se reintentará...");
-      setTimeout(() => { if (typeof renderAll === "function") renderAll(); }, 3000);
-    }
-  }, 2000);
 });
 
-window.addEventListener('online', () => {
-  console.log("🌐 Conexión restaurada. Forzando renderAll...");
-  if (typeof renderAll === "function") renderAll();
-});
-/* ===========================================================
-   🧱 FIX ARR.MAP — Protección de arrays en sincronización
-   =========================================================== */
-const safeMap = arr => (Array.isArray(arr) ? arr : Object.values(arr || {}));
-const oldMap = Array.prototype.map;
-Array.prototype.map = function(fn, thisArg){
-  if (typeof fn !== "function") return oldMap.call([], fn, thisArg);
-  try {
-    return oldMap.call(this, fn, thisArg);
-  } catch(e) {
-    console.warn("⚠️ safeMap aplicado:", e);
-    return safeMap(this).map(fn, thisArg);
-  }
-};
-
-/* ===========================================================
-   💚 FIX FINAL — Reintento persistente de renderAll
-   =========================================================== */
-(function ensureRenderAllLoaded() {
-  console.log("🧩 Monitorizando aparición de renderAll...");
-  let attempts = 0;
-  const timer = setInterval(() => {
-    attempts++;
-    if (typeof renderAll === "function") {
-      console.log("✅ renderAll detectado tras", attempts, "intentos. Refrescando interfaz...");
-      try {
-        renderAll();
-        console.log("🎉 Interfaz actualizada correctamente con datos sincronizados.");
-      } catch (err) {
-        console.error("❌ Error al ejecutar renderAll:", err);
-      }
-      clearInterval(timer);
-    } else if (attempts % 10 === 0) {
-      console.warn("⌛ renderAll aún no disponible tras", attempts, "segundos...");
-    }
-  }, 1000);
 })();
-/* ===========================================================
-   💚 FIX FINAL DEFINITIVO — RenderAll persistente
-   =========================================================== */
-(function waitForRenderAndSync() {
-  console.log("🧩 Monitorizando aparición de renderAll...");
-  let tries = 0;
-
-  const timer = setInterval(() => {
-    tries++;
-    if (typeof renderAll === "function") {
-      console.log("✅ renderAll detectado tras", tries, "intentos.");
-      try {
-        renderAll();
-        console.log("🎉 Interfaz actualizada con datos sincronizados.");
-      } catch (err) {
-        console.error("❌ Error ejecutando renderAll:", err);
-      }
-      clearInterval(timer);
-    } else if (tries > 60) {
-      console.warn("⚠️ Han pasado 60 segundos y renderAll aún no se definió. Reintentando lento...");
-      clearInterval(timer);
-      setTimeout(waitForRenderAndSync, 5000); // vuelve a intentarlo en 5 s
-    } else if (tries % 10 === 0) {
-      console.log("⌛ Esperando renderAll...", tries, "segundos");
-    }
-  }, 1000);
-})();
-/* ===========================================================
-   💚 FIX FINAL DEFINITIVO — RenderAll persistente y forzado
-   =========================================================== */
-(function ensureRenderAllWorks() {
-  console.log("🧩 Esperando a que renderAll esté disponible...");
-  let attempts = 0;
-  const timer = setInterval(() => {
-    attempts++;
-    if (typeof renderAll === "function") {
-      console.log("✅ renderAll detectado tras", attempts, "intentos. Ejecutando...");
-      try {
-        renderAll();
-        console.log("🎉 Interfaz actualizada correctamente con datos sincronizados.");
-      } catch (e) {
-        console.error("❌ Error ejecutando renderAll:", e);
-      }
-      clearInterval(timer);
-    } else if (attempts % 10 === 0) {
-      console.warn("⌛ renderAll aún no disponible tras", attempts, "segundos...");
-    }
-  }, 1000);
-
-  // Seguridad adicional: relanzar renderAll cada 30s si está disponible
-  setInterval(() => {
-    if (typeof renderAll === "function") {
-      try { renderAll(); console.log("🔁 Refrescando interfaz periódicamente"); } 
-      catch(e){ console.error(e); }
-    }
-  }, 30000);
-})();
-/* ===========================================================
-   💚 FIX GLOBAL — Crear renderAll universal
-   =========================================================== */
-window.renderAll = async function() {
-  console.log("🔄 Ejecutando renderAll universal...");
-
-  try {
-    if (typeof renderClientes === "function") {
-      renderClientes();
-      console.log("👥 Clientes actualizados.");
-    }
-
-    if (typeof renderProductos === "function") {
-      renderProductos();
-      console.log("🍏 Productos actualizados.");
-    }
-
-    if (typeof renderFacturas === "function") {
-      renderFacturas();
-      console.log("🧾 Facturas actualizadas.");
-    }
-
-    if (typeof renderResumen === "function") {
-      renderResumen();
-      console.log("📊 Resumen actualizado.");
-    }
-
-    console.log("✅ renderAll completado correctamente.");
-  } catch (err) {
-    console.error("❌ Error ejecutando renderAll universal:", err);
-  }
-};
-
-/* ===========================================================
-   🚀 FIX FINAL — Esperar a renderAll y ejecutarlo
-   =========================================================== */
-(function ensureRenderAll() {
-  console.log("🧩 Esperando a que renderAll esté disponible...");
-  let tries = 0;
-  const interval = setInterval(() => {
-    tries++;
-    if (typeof renderAll === "function") {
-      clearInterval(interval);
-      renderAll();
-      console.log("🎉 renderAll ejecutado correctamente tras", tries, "segundos.");
-    } else if (tries % 10 === 0) {
-      console.warn("⌛ renderAll aún no disponible tras", tries, "segundos...");
-    }
-    if (tries > 60) {
-      clearInterval(interval);
-      console.error("⚠️ No se detectó renderAll después de 60 segundos.");
-    }
-  }, 1000);
-})();
-
-
-/* ===========================================================
-   💚 FIX 2 — Crear renderAll universal si no existe
-   =========================================================== */
-if (typeof window.renderAll !== "function") {
-  window.renderAll = async function() {
-    console.log("🔄 Ejecutando renderAll universal...");
-    try {
-      if (typeof renderClientes === "function") {
-        renderClientes();
-        console.log("👥 Clientes actualizados.");
-      }
-      if (typeof renderProductos === "function") {
-        renderProductos();
-        console.log("🍏 Productos actualizados.");
-      }
-      if (typeof renderFacturas === "function") {
-        renderFacturas();
-        console.log("🧾 Facturas actualizadas.");
-      }
-      if (typeof renderResumen === "function") {
-        renderResumen();
-        console.log("📊 Resumen actualizado.");
-      }
-      console.log("✅ renderAll completado correctamente.");
-    } catch (err) {
-      console.error("❌ Error ejecutando renderAll universal:", err);
-    }
-  };
-}
-
-/* ===========================================================
-   🚀 FIX 3 — Esperar y ejecutar renderAll automáticamente
-   =========================================================== */
-(function ensureRenderAll() {
-  console.log("🧩 Esperando a que renderAll esté disponible...");
-  let tries = 0;
-  const timer = setInterval(() => {
-    tries++;
-    if (typeof renderAll === "function") {
-      try {
-        renderAll();
-        console.log("🎉 renderAll ejecutado correctamente tras", tries, "segundos.");
-      } catch (e) {
-        console.error("❌ Error ejecutando renderAll:", e);
-      }
-      clearInterval(timer);
-    } else if (tries % 10 === 0) {
-      console.warn("⌛ renderAll aún no disponible tras", tries, "segundos...");
-    }
-    if (tries > 60) {
-      clearInterval(timer);
-      console.error("⚠️ No se detectó renderAll después de 60 segundos.");
-    }
-  }, 1000);
-
-  // Seguridad adicional: forzar actualización cada 30 segundos
-  setInterval(() => {
-    if (typeof renderAll === "function") {
-      try { renderAll(); console.log("🔁 Refrescando interfaz periódicamente..."); }
-      catch(e){ console.error("⚠️ Error al refrescar:", e); }
-    }
-  }, 30000);
-  /* ===========================================================
-   🧩 FIX UUID AUTOMÁTICO PARA CLIENTES, FACTURAS Y PENDIENTES
-   =========================================================== */
-(async () => {
-  try {
-    const isUUID = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-    const fixId = () => crypto.randomUUID();
-
-    let fixed = 0;
-
-    // 🧾 CLIENTES
-    if (typeof clientes !== "undefined" && Array.isArray(clientes)) {
-      clientes.forEach(c => {
-        if (!isUUID(c.id)) {
-          console.warn("🩹 Reparando ID cliente no válido:", c.id);
-          c.id = fixId();
-          fixed++;
-        }
-      });
-      save("clientes", clientes);
-    }
-
-    // 🧾 FACTURAS
-    if (typeof facturas !== "undefined" && Array.isArray(facturas)) {
-      facturas.forEach(f => {
-        if (!isUUID(f.id)) {
-          console.warn("🩹 Reparando ID factura no válido:", f.id);
-          f.id = fixId();
-          fixed++;
-        }
-        if (f.cliente_id && !isUUID(f.cliente_id)) {
-          console.warn("🩹 Reparando cliente_id de factura:", f.cliente_id);
-          const clienteRelacionado = clientes.find(c => c.nombre === f.cliente);
-          f.cliente_id = clienteRelacionado ? clienteRelacionado.id : fixId();
-          fixed++;
-        }
-      });
-      save("facturas", facturas);
-    }
-
-    // 🧾 PENDIENTES
-    if (typeof pendientes !== "undefined" && Array.isArray(pendientes)) {
-      pendientes.forEach(p => {
-        if (p.cliente_id && !isUUID(p.cliente_id)) {
-          console.warn("🩹 Reparando cliente_id de pendiente:", p.cliente_id);
-          const clienteRelacionado = clientes.find(c => c.nombre === p.cliente);
-          p.cliente_id = clienteRelacionado ? clienteRelacionado.id : fixId();
-          fixed++;
-        }
-      });
-      save("pendientes", pendientes);
-    }
-
-    if (fixed > 0) {
-      console.log(`✅ Reparados ${fixed} IDs inválidos. Reintentando sincronización...`);
-      if (typeof syncBidireccional === "function") {
-        await syncBidireccional();
-      }
-    } else {
-      console.log("✨ Todos los IDs locales ya son válidos UUID.");
-    }
-  } catch (e) {
-    console.error("❌ Error en FIX UUID automático:", e);
-  }
-  /* ===========================================================
-   🧹 LIMPIEZA FINAL DE CLIENTES NO UUID (Purga + Reparación)
-   =========================================================== */
-(async () => {
-  try {
-    const isUUID = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-    const makeUUID = () => crypto.randomUUID();
-
-    if (typeof clientes !== "undefined" && Array.isArray(clientes)) {
-      const invalidClients = clientes.filter(c => !isUUID(c.id));
-      if (invalidClients.length > 0) {
-        console.warn(`🧹 Eliminando ${invalidClients.length} clientes con IDs no válidos...`);
-        const validClients = clientes.filter(c => isUUID(c.id));
-
-        // Reasignar UUID nuevos a los eliminados (opcional)
-        const repaired = invalidClients.map(c => ({
-          ...c,
-          id: makeUUID()
-        }));
-
-        // Combinar válidos + reparados
-        const updated = [...validClients, ...repaired];
-        save("clientes", updated);
-
-        console.log(`✅ ${invalidClients.length} clientes reparados o regenerados.`);
-        if (typeof syncBidireccional === "function") {
-          await syncBidireccional();
-        }
-      } else {
-        console.log("✨ No hay clientes con IDs inválidos.");
-      }
-    }
-  } catch (e) {
-    console.error("❌ Error en limpieza de clientes no UUID:", e);
-  }
-})();
-  /* ===========================================================
-   🧩 PURGA DEFINITIVA DE CLIENTES NO UUID
-   =========================================================== */
-(async () => {
-  try {
-    const isUUID = v => /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(v);
-    const makeUUID = () => crypto.randomUUID();
-    let fixedCount = 0;
-
-    if (typeof clientes !== "undefined" && Array.isArray(clientes)) {
-      // 🔍 Detectar todos los IDs inválidos
-      const invalids = clientes.filter(c => !isUUID(c.id));
-      if (invalids.length > 0) {
-        console.warn(`🧹 Eliminando ${invalids.length} clientes con ID inválido...`);
-        // Eliminar los inválidos y regenerarlos con UUID nuevo
-        const repaired = invalids.map(c => ({
-          ...c,
-          id: makeUUID()
-        }));
-        const updated = [...clientes.filter(c => isUUID(c.id)), ...repaired];
-        save("clientes", updated);
-        fixedCount = invalids.length;
-      }
-    }
-
-    if (fixedCount > 0) {
-      console.log(`✅ ${fixedCount} clientes purgados y regenerados con UUID.`);
-      if (typeof syncBidireccional === "function") {
-        await syncBidireccional();
-      }
-    } else {
-      console.log("✨ No se detectaron clientes inválidos.");
-    }
-  } catch (err) {
-    console.error("❌ Error en PURGA DEFINITIVA DE CLIENTES:", err);
-  }
-})();
-
-
-})();
-
-})();
-
