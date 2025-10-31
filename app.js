@@ -1763,6 +1763,36 @@ window.addEventListener('online', () => {
     }
   }, 1000);
 })();
+/* ===========================================================
+   💚 FIX TOTAL — RenderAll garantizado tras sincronización
+   =========================================================== */
+(function ensureRenderAllWorks() {
+  console.log("🧩 Esperando a que renderAll esté disponible...");
+  let attempts = 0;
+  const watch = setInterval(() => {
+    attempts++;
+    if (typeof renderAll === "function") {
+      console.log("✅ renderAll detectado tras", attempts, "intentos. Ejecutando...");
+      try {
+        renderAll();
+        console.log("🎉 Interfaz actualizada correctamente con datos sincronizados.");
+      } catch (e) {
+        console.error("❌ Error ejecutando renderAll:", e);
+      }
+      clearInterval(watch);
+    } else if (attempts % 10 === 0) {
+      console.warn("⌛ renderAll aún no disponible después de", attempts, "segundos...");
+    }
+  }, 1000);
+  
+  // Reintento extendido cada 30 segundos
+  setInterval(() => {
+    if (typeof renderAll === "function") {
+      console.log("🔁 Reforzando renderAll periódicamente...");
+      try { renderAll(); } catch(e){ console.error(e); }
+    }
+  }, 30000);
+})();
 
 
 
