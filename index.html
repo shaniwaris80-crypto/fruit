@@ -25,7 +25,7 @@
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
       try {
-        const reg = await navigator.serviceWorker.register('/fruit/sw.js');
+        const reg = await navigator.serviceWorker.register('./sw.js');
         console.log('✅ Service Worker registrado en:', reg.scope);
       } catch (err) {
         console.warn('⚠️ Error registrando Service Worker:', err);
@@ -217,6 +217,7 @@
       <div class="pdf-foot" id="pdf-foot-note">IVA incluido en los precios.</div>
     </div>
   </section>
+
   <!-- ========== CLIENTES ========== -->
   <section class="panel" data-tab-panel="clientes">
     <div class="card">
@@ -399,6 +400,12 @@ document.getElementById('installBtn').addEventListener('click', async () => {
 
 <!-- 🔌 SUPABASE + APP -->
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // Inicialización de Supabase
+  const SUPABASE_URL = "https://fjfbokkcdbmralwzsest.supabase.co";
+  const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU";
+  const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+</script>
 <script src="app.js"></script>
 </body>
 </html>
