@@ -919,9 +919,13 @@ async function supaSafeUpsert(table, rows, onConflictCols) {
 
 /* ---- CLIENTES: merge por id o nombre ---- */
 async function syncClientesLite() {
-  const cloud = await supaSafeSelect('clientes');
+  const cloud = await supaSafeSelect('clientes?id,nombre,direccion,nif,telefono,email');
   if (!Array.isArray(clientes)) clientes = [];
   let merged = [...clientes];
+
+  // Resto de la función...
+}
+
 
   // Merge de nube -> local
   for (const r of cloud) {
