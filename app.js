@@ -1207,4 +1207,66 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
 
 // ✅ Cierre final del bloque principal
 })();
+/* ===========================================================
+   🌍 SYNC UNIVERSAL — FACTURAS ENTRE DISPOSITIVOS (plug-in)
+   Sin tocar el resto del código.
+   =========================================================== */
+(async function syncUniversal() {
+  console.log("🔁 SYNC UNIVERSAL iniciado…");
+
+  // Espera 3 segundos para que la app cargue completamente
+  await new Promise(r => setTimeout(r, 3000));
+
+  if (!navigator.onLine) {
+    console.warn("📴 Sin conexión. Reintentará al reconectarse.");
+    window.addEventListener("online", syncUniversal, { once: true });
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase.from("facturas").select("*");
+    if (error) throw error;
+
+    if (data && data.length) {
+      console.log(`⬇️ Descargando ${data.length} facturas desde Supabase…`);
+      // reconstruye las facturas completas si vienen como JSON en campo 'datos'
+      const facturasCloud = data.map(r => {
+        try {
+          return r.datos ? JSON.parse(r.datos) : r;
+        } catch {
+          return r;
+        }
+      });
+
+      // guarda en localStorage sin tocar lo anterior
+      localStorage.setItem(K_FACTURAS, JSON.stringify(facturasCloud));
+      console.log("✅ Facturas actualizadas en localStorage.");
+
+      // refresca la vista si existe renderAll()
+      if (typeof renderAll === "function") renderAll();
+    } else {
+      console.log("ℹ️ No hay facturas nuevas en Supabase.");
+    }
+  } catch (e) {
+    console.error("❌ Error en SYNC UNIVERSAL:", e.message);
+  }
+
+  // 🔔 Suscripción en vivo: cuando haya cambios en Supabase, vuelve a sincronizar
+  try {
+    supabase
+      .channel("facturas_live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "facturas" },
+        payload => {
+          console.log("📡 Cambio detectado en Supabase → actualizando…", payload.eventType);
+          syncUniversal(); // vuelve a ejecutar
+        }
+      )
+      .subscribe();
+    console.log("📡 Escuchando cambios en tiempo real de facturas.");
+  } catch (e) {
+    console.warn("⚠️ Live-sync no disponible:", e.message);
+  }
+})();
 
