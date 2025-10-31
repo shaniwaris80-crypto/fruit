@@ -1107,6 +1107,21 @@ const TABLAS = {
 };
 
 
+/* ===========================================================
+   🧱 FIX UNIVERSAL ARR.MAP — evita que se rompa syncExtendida
+   =========================================================== */
+function safeMap(arr, fn, thisArg) {
+  try {
+    if (!Array.isArray(arr)) {
+      if (arr && typeof arr === 'object') return Object.values(arr).map(fn, thisArg);
+      return [];
+    }
+    return arr.map(fn, thisArg);
+  } catch (e) {
+    console.warn("⚠️ safeMap aplicado:", e);
+    return [];
+  }
+}
 
 
   // 🔁 Función para sincronizar una tabla
