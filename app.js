@@ -481,9 +481,55 @@ function fillPrint(lines, totals, _temp=null, f=null){
   }catch(e){}
 }
 
-/* ---------- GUARDAR / NUEVA / PDF ---------- */
-function genNumFactura(){ const d=new Date(), pad=n=>String(n).padStart(2,'0'); return `FA-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`; }
-function saveFacturas(){ save(K_FACTURAS, facturas); }
+// ===========================================================
+// 🔢 Generar número automático de factura
+// ===========================================================
+function genNumFactura() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `FA-${d.getFullYear()}${pad(d.getMonth()+1)}${pad(d.getDate())}-${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}`;
+}
+
+// ===========================================================
+// 💾 Guardar facturas (local + Supabase)
+// ===========================================================
+async function saveFacturas() {
+  try {
+    // 1️⃣ Guardado local
+    save(K_FACTURAS, facturas);
+    console.log("💾 Facturas guardadas localmente:", facturas.length);
+
+    // 2️⃣ Guardado remoto (Supabase)
+    if (typeof supabase !== 'undefined' && facturas.length > 0) {
+      const { data, error } = await supabase
+        .from('facturas')
+        .upsert(facturas.map(f => ({
+          id: f.id,
+          numero: f.numero,
+          cliente: f.cliente,
+          nif: f.nif,
+          direccion: f.direccion || '',
+          telefono: f.telefono || '',
+          email: f.email || '',
+          fecha: f.fecha || new Date().toISOString(),
+          total: f.total || 0,
+          estado: f.estado || 'Pendiente',
+          updated_at: new Date().toISOString()
+        })));
+
+      if (error) {
+        console.warn("⚠️ Error subiendo facturas:", error);
+      } else {
+        console.log("✅ Facturas subidas correctamente a Supabase:", data?.length || 0);
+      }
+    } else {
+      console.warn("ℹ️ No hay facturas que subir o Supabase no está inicializado.");
+    }
+  } catch (e) {
+    console.error("❌ Error en saveFacturas:", e);
+  }
+}
+
   /* ===========================================================
    ☁️ SUBIR FACTURA NUEVA A SUPABASE TRAS GUARDARLA
    =========================================================== */
