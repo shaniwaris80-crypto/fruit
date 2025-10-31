@@ -25,8 +25,7 @@
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', async () => {
       try {
-        // 🔧 Ruta corregida para compatibilidad en GitHub Pages y local
-        const reg = await navigator.serviceWorker.register('./sw.js');
+        const reg = await navigator.serviceWorker.register('/fruit/sw.js');
         console.log('✅ Service Worker registrado en:', reg.scope);
       } catch (err) {
         console.warn('⚠️ Error registrando Service Worker:', err);
@@ -165,15 +164,200 @@
       <button id="btnNueva" class="ghost">🧾 Nueva</button>
     </div>
 
-    <!-- 🔧 No se elimina nada, solo mantiene estructura original -->
     <div id="printArea" class="print">
-      <!-- Sección PDF idéntica -->
-      <!-- ... -->
+      <div class="pdf-header">
+        <div class="pdf-brand">
+          <svg id="pdf-kiwi" width="42" height="42" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="45" fill="#9acd32" stroke="#5a7f1a" stroke-width="6"></circle>
+            <circle cx="50" cy="50" r="24" fill="#fff" stroke="#7fbf3f" stroke-width="5"></circle>
+            <g fill="#2b2b2b">
+              <circle cx="50" cy="28" r="3"></circle>
+              <circle cx="64" cy="32" r="3"></circle>
+              <circle cx="72" cy="45" r="3"></circle>
+              <circle cx="36" cy="32" r="3"></circle>
+              <circle cx="28" cy="45" r="3"></circle>
+              <circle cx="50" cy="72" r="3"></circle>
+              <circle cx="36" cy="68" r="3"></circle>
+              <circle cx="64" cy="68" r="3"></circle>
+            </g>
+          </svg>
+          <div>
+            <h2 id="pdf-title">FACTURA</h2>
+            <div id="p-prov"></div>
+          </div>
+        </div>
+        <div class="pdf-meta">
+          <div><span>Nº:</span> <strong id="p-num"></strong></div>
+          <div><span>Fecha:</span> <strong id="p-fecha"></strong></div>
+          <div><span>Cliente:</span><div id="p-cli"></div></div>
+          <canvas id="p-qr" width="92" height="92"></canvas>
+        </div>
+      </div>
+
+      <table id="p-tabla">
+        <thead>
+          <tr><th>Producto</th><th>Modo</th><th>Cant.</th><th>Bruto</th><th>Tara</th><th>Neto</th><th>Precio</th><th>Origen</th><th>Importe</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+
+      <div class="pdf-totales">
+        <div>
+          <div>Subtotal: <strong id="p-sub">0,00 €</strong></div>
+          <div>Transporte: <strong id="p-tra">0,00 €</strong></div>
+          <div>IVA (4%): <strong id="p-iva">0,00 €</strong></div>
+          <div class="big">Total: <strong id="p-tot">0,00 €</strong></div>
+        </div>
+        <div>
+          <div>Estado: <strong id="p-estado">Impagada</strong></div>
+          <div>Método: <strong id="p-metodo">Efectivo</strong></div>
+          <div>Obs.: <span id="p-obs">—</span></div>
+        </div>
+      </div>
+      <div class="pdf-foot" id="pdf-foot-note">IVA incluido en los precios.</div>
+    </div>
+  </section>
+  <!-- ========== CLIENTES ========== -->
+  <section class="panel" data-tab-panel="clientes">
+    <div class="card">
+      <div class="title-row">
+        <h3>Clientes</h3>
+        <div class="row">
+          <input id="buscarCliente" class="search" placeholder="Buscar cliente…" />
+          <button id="btnAddCliente">+ Añadir</button>
+          <button id="btnExportClientes" class="ghost">⤓ Exportar</button>
+          <button id="btnImportClientes" class="ghost">⤒ Importar</button>
+        </div>
+      </div>
+      <div id="listaClientes" class="list"></div>
     </div>
   </section>
 
-  <!-- Se mantienen TODAS las secciones Clientes, Facturas, Productos, Pendientes, Ventas, Resumen exactamente igual -->
-  <!-- (no eliminadas ni modificadas, solo abajo los scripts finales ajustados) -->
+  <!-- ========== FACTURAS ========== -->
+  <section class="panel" data-tab-panel="facturas">
+    <div class="card">
+      <div class="title-row">
+        <h3>Facturas</h3>
+        <div class="row">
+          <select id="filtroEstado">
+            <option value="todas">Todas</option>
+            <option value="pendiente">Impagadas</option>
+            <option value="parcial">Parciales</option>
+            <option value="pagado">Pagadas</option>
+          </select>
+          <input id="buscaCliente" class="search" placeholder="Buscar por cliente…" />
+          <button id="btnExportFacturas" class="ghost">⤓ Exportar</button>
+          <button id="btnImportFacturas" class="ghost">⤒ Importar</button>
+        </div>
+      </div>
+      <div id="listaFacturas" class="list"></div>
+    </div>
+  </section>
+
+  <!-- ========== PRODUCTOS ========== -->
+  <section class="panel" data-tab-panel="productos">
+    <div class="card">
+      <div class="title-row">
+        <h3>Productos</h3>
+        <div class="row">
+          <input id="buscarProducto" class="search" placeholder="Buscar producto…" />
+          <button id="btnAddProducto">+ Añadir</button>
+          <button id="btnExportProductos" class="ghost">⤓ Exportar</button>
+          <button id="btnImportProductos" class="ghost">⤒ Importar</button>
+        </div>
+      </div>
+      <div id="listaProductos" class="listaProductos"></div>
+    </div>
+  </section>
+
+  <!-- ========== PENDIENTES ========== -->
+  <section class="panel" data-tab-panel="pendientes">
+    <div class="card">
+      <div class="title-row">
+        <h3>Deudas por cliente</h3>
+        <div class="row">
+          <button id="btnResetCliente" class="ghost">Reset deudas del cliente actual</button>
+          <button id="btnResetGlobal" class="ghost">Reset deudas global</button>
+        </div>
+      </div>
+      <table class="calc-table" id="tblPendientes">
+        <thead>
+          <tr>
+            <th>Cliente</th>
+            <th>Nº facturas pendientes</th>
+            <th>Total pendiente</th>
+            <th>Última factura</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+      <div class="pendiente total">Total pendiente global: <strong id="resGlobal">0,00 €</strong></div>
+    </div>
+  </section>
+
+  <!-- ========== VENTAS ========== -->
+  <section class="panel" data-tab-panel="ventas">
+    <div class="grid2">
+      <div class="card">
+        <h3>Totales globales</h3>
+        <div class="kpis">
+          <div class="kpi"><span>Hoy</span><strong id="vHoy">0,00 €</strong></div>
+          <div class="kpi"><span>Semana</span><strong id="vSemana">0,00 €</strong></div>
+          <div class="kpi"><span>Mes</span><strong id="vMes">0,00 €</strong></div>
+          <div class="kpi"><span>Total</span><strong id="vTotal">0,00 €</strong></div>
+        </div>
+      </div>
+      <div class="card">
+        <h3>Top 10 productos (total €)</h3>
+        <canvas id="chartTop" height="160"></canvas>
+      </div>
+    </div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>Ventas diarias (7 días)</h3>
+        <canvas id="chartDiario" height="140"></canvas>
+      </div>
+      <div class="card">
+        <h3>Ventas mensuales (12 meses)</h3>
+        <canvas id="chartMensual" height="140"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="title-row">
+        <h3>Detalle por cliente</h3>
+        <div class="row">
+          <input id="ventasFiltroMes" type="month" />
+          <button id="btnExportVentas" class="ghost">📤 Exportar CSV</button>
+        </div>
+      </div>
+      <table class="calc-table" id="tblVentasCliente">
+        <thead>
+          <tr><th>Cliente</th><th>Hoy</th><th>Semana</th><th>Mes</th><th>Total</th></tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <!-- ========== RESUMEN ========== -->
+  <section class="panel" data-tab-panel="resumen">
+    <div class="card">
+      <h3>Resumen rápido</h3>
+      <div class="kpis">
+        <div class="kpi"><span>Hoy</span><strong id="rHoy">0,00 €</strong></div>
+        <div class="kpi"><span>Semana</span><strong id="rSemana">0,00 €</strong></div>
+        <div class="kpi"><span>Mes</span><strong id="rMes">0,00 €</strong></div>
+        <div class="kpi"><span>Total</span><strong id="rTotal">0,00 €</strong></div>
+      </div>
+      <div class="row actions mt8">
+        <button id="btnBackup">Backup</button>
+        <button id="btnRestore" class="ghost">Restaurar</button>
+      </div>
+    </div>
+  </section>
 
 </main>
 
@@ -214,9 +398,7 @@ document.getElementById('installBtn').addEventListener('click', async () => {
 </script>
 
 <!-- 🔌 SUPABASE + APP -->
-<!-- ⚙️ Se mantiene estructura original, solo se carga una vez correctamente -->
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.43.1"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script src="app.js"></script>
-
 </body>
 </html>
