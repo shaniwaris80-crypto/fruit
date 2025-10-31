@@ -17,12 +17,60 @@ window.save = function (k, v) {
   localStorage.setItem(k, JSON.stringify(v));
 };
 
-// --- SUPABASE INIT ---
+// --- SUPABASE INIT (Solo descarga al abrir) ---
 const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-supabase.from('clientes').select('*').then(console.log).catch(console.error);
 
+// --- SINCRONIZACIÓN AUTOMÁTICA SOLO AL ABRIR ---
+async function syncAlAbrir() {
+  console.log("☁️ Iniciando descarga desde Supabase...");
+
+  try {
+    // 📥 Descargar Clientes
+    const { data: clientesData, error: clientesError } = await supabase
+      .from('clientes')
+      .select('id, nombre, direccion, nif, telefono, email');
+
+    if (clientesError) throw clientesError;
+    if (Array.isArray(clientesData)) {
+      console.log("✅ Clientes descargados:", clientesData.length);
+      window.clientes = clientesData;
+      save(K_CLIENTES, clientesData);
+    }
+
+    // 📥 Descargar Productos
+    const { data: productosData, error: productosError } = await supabase
+      .from('productos')
+      .select('name, mode, boxkg, price, origin');
+
+    if (productosError) throw productosError;
+    if (Array.isArray(productosData)) {
+      console.log("✅ Productos descargados:", productosData.length);
+      window.productos = productosData;
+      save(K_PRODUCTOS, productosData);
+    }
+
+    // 🔄 Refrescar interfaz si existe renderAll
+    if (typeof renderAll === "function") {
+      renderAll();
+    } else {
+      console.warn("⚠️ No se encontró renderAll para refrescar UI.");
+    }
+  } catch (e) {
+    console.error("❌ Error en sincronización al abrir:", e);
+  }
+}
+
+// ⏯ Ejecutar al abrir la app
+syncAlAbrir();
+
+/* =======================================================
+   ARSLAN PRO V10.4 — KIWI Edition (Full, estable)
+   - Misma base funcional + mejoras de totales, PDF, UX rápido
+   - 4 paletas, sin splash, logo kiwi solo en PDF, "FACTURA"
+   - Clientes: selección segura por ID (evita datos cruzados)
+======================================================= */
 
 /* =======================================================
    ARSLAN PRO V10.4 — KIWI Edition (Full, estable)
