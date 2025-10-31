@@ -1779,12 +1779,12 @@ Array.prototype.map = function(fn, thisArg){
   }, 1000);
 })();
 /* ===========================================================
-   💚 FIX TOTAL — RenderAll garantizado tras sincronización
+   💚 FIX FINAL DEFINITIVO — RenderAll persistente y forzado
    =========================================================== */
 (function ensureRenderAllWorks() {
   console.log("🧩 Esperando a que renderAll esté disponible...");
   let attempts = 0;
-  const watch = setInterval(() => {
+  const timer = setInterval(() => {
     attempts++;
     if (typeof renderAll === "function") {
       console.log("✅ renderAll detectado tras", attempts, "intentos. Ejecutando...");
@@ -1794,20 +1794,17 @@ Array.prototype.map = function(fn, thisArg){
       } catch (e) {
         console.error("❌ Error ejecutando renderAll:", e);
       }
-      clearInterval(watch);
+      clearInterval(timer);
     } else if (attempts % 10 === 0) {
-      console.warn("⌛ renderAll aún no disponible después de", attempts, "segundos...");
+      console.warn("⌛ renderAll aún no disponible tras", attempts, "segundos...");
     }
   }, 1000);
-  
-  // Reintento extendido cada 30 segundos
+
+  // Seguridad adicional: relanzar renderAll cada 30s si está disponible
   setInterval(() => {
     if (typeof renderAll === "function") {
-      console.log("🔁 Reforzando renderAll periódicamente...");
-      try { renderAll(); } catch(e){ console.error(e); }
+      try { renderAll(); console.log("🔁 Refrescando interfaz periódicamente"); } 
+      catch(e){ console.error(e); }
     }
   }, 30000);
 })();
-
-
-
