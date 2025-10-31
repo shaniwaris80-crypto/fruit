@@ -1,51 +1,44 @@
 /* ============================================================
-   🥝 ARSLAN PRO V10.4 KIWI — Service Worker (FULL FIX)
-   - Cache inteligente (solo GET)
-   - Offline first para HTML, CSS, JS, imágenes
-   - Evita errores POST en cache
-   - Compatible con Supabase y PWA
+   🥝 ARSLAN PRO V10.4 KIWI — SERVICE WORKER (FULL FIX)
    ============================================================ */
 
-const CACHE_NAME = 'arslan-pro-v104-cache-v3';
-const OFFLINE_URL = '/offline.html';
+const CACHE_NAME = "arslan-pro-v104-cache-v5";
+const OFFLINE_URL = "/offline.html";
 
-// Archivos base que se precachean
-const ASSETS = [
-  '/',
-  '/index.html',
-  '/style.css',
-  '/app.js',
-  '/logo.png',
-  '/manifest.json',
-  '/offline.html',
+// Archivos que se precachean (ajusta según tu estructura)
+const PRECACHE_ASSETS = [
+  "/",
+  "/index.html",
+  "/style.css",
+  "/app.js",
+  "/manifest.json",
+  "/logo.png",
+  OFFLINE_URL
 ];
 
 // ============================================================
-// INSTALACIÓN DEL SERVICE WORKER
+// 📦 INSTALACIÓN — precache de los recursos estáticos
 // ============================================================
-self.addEventListener('install', event => {
-  console.log('📦 Instalando Service Worker KIWI...');
+self.addEventListener("install", event => {
+  console.log("📦 Instalando Service Worker…");
   event.waitUntil(
     caches.open(CACHE_NAME)
-      .then(cache => cache.addAll(ASSETS))
+      .then(cache => cache.addAll(PRECACHE_ASSETS))
       .then(() => self.skipWaiting())
   );
 });
 
 // ============================================================
-// ACTIVACIÓN DEL SERVICE WORKER
+// 🚀 ACTIVACIÓN — limpia versiones antiguas del caché
 // ============================================================
-self.addEventListener('activate', event => {
-  console.log('✅ Service Worker activado:', CACHE_NAME);
+self.addEventListener("activate", event => {
+  console.log("🚀 Activando nuevo Service Worker…");
   event.waitUntil(
     caches.keys().then(keys =>
       Promise.all(
-        keys.map(key => {
-          if (key !== CACHE_NAME) {
-            console.log('🗑️ Eliminando cache antigua:', key);
-            return caches.delete(key);
-          }
-        })
+        keys
+          .filter(k => k !== CACHE_NAME)
+          .map(k => caches.delete(k))
       )
     )
   );
@@ -53,32 +46,31 @@ self.addEventListener('activate', event => {
 });
 
 // ============================================================
-// INTERCEPTOR DE PETICIONES
+// 🌐 FETCH — modo offline seguro
 // ============================================================
-self.addEventListener('fetch', event => {
-  const req = event.request;
-  const url = new URL(req.url);
+self.addEventListener("fetch", event => {
+  const { request } = event;
 
-  // Evita cachear llamadas de Supabase o POST/PUT/DELETE
+  // ⚠️ No cachear peticiones POST, PUT, DELETE ni Supabase
+  const url = request.url;
   if (
-    req.method !== 'GET' ||
-    url.origin.includes('supabase.co') ||
-    url.origin.includes('supabase.in')
+    request.method !== "GET" ||
+    url.includes("supabase.co") ||
+    url.includes("/rest/v1/")
   ) {
-    return; // deja que pase directo sin cache
+    return; // deja pasar al navegador
   }
 
-  // Modo offline: intenta cache, luego red
+  // 🎯 Estrategia: "Cache falling back to network"
   event.respondWith(
-    caches.match(req).then(cachedResponse => {
+    caches.match(request).then(cachedResponse => {
       if (cachedResponse) return cachedResponse;
-      return fetch(req)
+      return fetch(request)
         .then(networkResponse => {
-          // Cachear solo respuestas GET válidas
-          if (networkResponse && networkResponse.status === 200) {
-            const cloned = networkResponse.clone();
-            caches.open(CACHE_NAME).then(cache => cache.put(req, cloned));
-          }
+          // Guardar en caché solo respuestas válidas (200)
+          if (!networkResponse || networkResponse.status !== 200) return networkResponse;
+          const responseClone = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(request, responseClone));
           return networkResponse;
         })
         .catch(() => caches.match(OFFLINE_URL));
@@ -87,23 +79,16 @@ self.addEventListener('fetch', event => {
 });
 
 // ============================================================
-// MANEJO DE MENSAJES DESDE LA APP
+// 🔄 ACTUALIZACIÓN FORZADA DESDE LA APP
 // ============================================================
-self.addEventListener('message', event => {
-  if (event.data === 'skipWaiting') {
+self.addEventListener("message", event => {
+  if (event.data && event.data.type === "SKIP_WAITING") {
     self.skipWaiting();
-  }
-  if (event.data === 'clearCache') {
-    caches.keys().then(keys => {
-      keys.forEach(key => {
-        if (key.startsWith('arslan-pro')) {
-          caches.delete(key);
-        }
-      });
-    });
+    console.log("♻️ Actualización de Service Worker forzada por la app.");
   }
 });
 
 // ============================================================
-// FIN DEL SERVICE WORKER 🥝
+// ✅ LOG DE CONTROL
 // ============================================================
+console.log("✅ Service Worker registrado y en ejecución (ARSLAN PRO KIWI).");
