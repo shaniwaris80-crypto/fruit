@@ -1,22 +1,3 @@
-// --- GLOBAL FIX FOR KEYS AND LOAD/SAVE ---
-window.K_CLIENTES   = 'arslan_v104_clientes';
-window.K_PRODUCTOS  = 'arslan_v104_productos';
-window.K_FACTURAS   = 'arslan_v104_facturas';
-window.K_PRICEHIST  = 'arslan_v104_pricehist';
-
-window.load = function (k, fallback) {
-  try {
-    const v = JSON.parse(localStorage.getItem(k) || '');
-    return v ?? fallback;
-  } catch {
-    return fallback;
-  }
-};
-
-window.save = function (k, v) {
-  localStorage.setItem(k, JSON.stringify(v));
-};
-
 // --- SUPABASE INIT (Solo descarga al abrir) ---
 const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
 const SUPABASE_ANON_KEY =
@@ -62,9 +43,24 @@ document.addEventListener('DOMContentLoaded', async () => {
     console.warn("⚠️ renderAll no disponible todavía");
   }
 });
+// --- GLOBAL FIX FOR KEYS AND LOAD/SAVE ---
+window.K_CLIENTES   = 'arslan_v104_clientes';
+window.K_PRODUCTOS  = 'arslan_v104_productos';
+window.K_FACTURAS   = 'arslan_v104_facturas';
+window.K_PRICEHIST  = 'arslan_v104_pricehist';
 
+window.load = function (k, fallback) {
+  try {
+    const v = JSON.parse(localStorage.getItem(k) || '');
+    return v ?? fallback;
+  } catch {
+    return fallback;
+  }
+};
 
-
+window.save = function (k, v) {
+  localStorage.setItem(k, JSON.stringify(v));
+};
 
 /* =======================================================
    ARSLAN PRO V10.4 — KIWI Edition (Full, estable)
