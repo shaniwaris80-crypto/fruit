@@ -52,18 +52,6 @@ async function syncAlAbrir() {
   }
 }
 
-// Ejecutar sincronización al cargar el DOM
-document.addEventListener('DOMContentLoaded', syncAlAbrir);
-
-  if (typeof renderAll === "function") {
-    renderAll();
-  } else {
-    console.warn("⚠️ renderAll no disponible todavía");
-  }
-});
-
-
-
 // --- Ejecutar sincronización al cargar el DOM ---
 document.addEventListener('DOMContentLoaded', async () => {
   await syncAlAbrir();
