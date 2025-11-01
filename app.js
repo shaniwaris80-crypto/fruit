@@ -1,50 +1,3 @@
-// --- SUPABASE INIT (solo sincronización al abrir) ---
-const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
-const SUPABASE_ANON_KEY =
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
-
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
-
-
-// --- Descarga automática de supabase solo al abrir ---
-async function syncAlAbrir() {
-  try {
-    console.log('☁️ Iniciando sincronización inicial...');
-
-
-    // 📥 Descargar Clientes
-    const { data: clientesData, error: clientesError } = await supabase
-      .from('clientes')
-      .select('id, nombre, direccion, nif, telefono');
-
-    if (clientesError) throw clientesError;
-    window.save(window.K_CLIENTES, clientesData || []);
-
-    // 📥 Descargar Productos
-    const { data: productosData, error: productosError } = await supabase
-      .from('productos')
-      .select('name, mode, boxkg, price, origin');
-
-    if (productosError) throw productosError;
-    window.save(window.K_PRODUCTOS, productosData || []);
-
-    console.log('✅ Sincronización inicial lista.');
-    if (typeof renderAll === 'function') renderAll();
-  } catch (err) {
-    console.error('❌ Error en sincronización inicial:', err.message || err);
-  }
-}
-
-// --- Ejecutar sincronización al cargar el DOM ---
-document.addEventListener('DOMContentLoaded', async () => {
-  await syncAlAbrir();
-
-  if (typeof renderAll === "function") {
-    renderAll();
-  } else {
-    console.warn("⚠️ renderAll no disponible todavía");
-  }
-});
 // --- GLOBAL FIX FOR KEYS AND LOAD/SAVE ---
 window.K_CLIENTES   = 'arslan_v104_clientes';
 window.K_PRODUCTOS  = 'arslan_v104_productos';
@@ -64,12 +17,12 @@ window.save = function (k, v) {
   localStorage.setItem(k, JSON.stringify(v));
 };
 
-/* =======================================================
-   ARSLAN PRO V10.4 — KIWI Edition (Full, estable)
-   - Misma base funcional + mejoras de totales, PDF, UX rápido
-   - 4 paletas, sin splash, logo kiwi solo en PDF, "FACTURA"
-   - Clientes: selección segura por ID (evita datos cruzados)
-======================================================= */
+// --- SUPABASE INIT ---
+const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
+const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+supabase.from('clientes').select('*').then(console.log).catch(console.error);
+
 
 /* =======================================================
    ARSLAN PRO V10.4 — KIWI Edition (Full, estable)
@@ -930,8 +883,9 @@ $('#btnAddCliente')?.addEventListener('click', ()=>{
     } catch (e) {
       console.error('❌ Error de conexión con Supabase:', e.message);
     }
-  })(); // <- función autoejecutable cerrada correctamente
-}); // <- este cierre de función probablemente sobra si no abre antes
+  })();
+});
+
 
 /* ---------- RESUMEN ---------- */
 function renderAll(){
@@ -1287,11 +1241,14 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
 /* ========================================================================
    🔘 BOTÓN MANUAL: Sincronizar con Supabase (descarga sin sobrescribir)
    ======================================================================== */
-document.addEventListener('DOMContentLoaded', async () => {
+document.getElementById('btnSyncSupabase')?.addEventListener('click', async () => {
+  if (!navigator.onLine) {
+    alert('📴 Sin conexión a internet. No se puede sincronizar.');
+    return;
+  }
+  alert('☁️ Iniciando sincronización… consulta la consola para detalles.');
   await syncAlAbrir();
-  if (typeof renderAll === "function") renderAll();
 });
-
 
 // ✅ Cierre final del bloque principal
 })();
