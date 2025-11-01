@@ -932,9 +932,8 @@ $('#btnAddCliente')?.addEventListener('click', ()=>{
     } catch (e) {
       console.error('❌ Error de conexión con Supabase:', e.message);
     }
-  })();
-});
-
+  })(); // <- función autoejecutable cerrada correctamente
+}); // <- este cierre de función probablemente sobra si no abre antes
 
 /* ---------- RESUMEN ---------- */
 function renderAll(){
