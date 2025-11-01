@@ -17,51 +17,61 @@ window.save = function (k, v) {
   localStorage.setItem(k, JSON.stringify(v));
 };
 
-// --- SUPABASE INIT ---
+// --- SUPABASE INIT (Solo descarga al abrir) ---
 const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
-
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-
-// 🔄 Descarga inicial al cargar la app
+// Descargar solo al abrir (clientes, productos y priceHist)
 async function syncAlAbrir() {
   try {
-    console.log("☁️ Descargando datos desde Supabase...");
+    console.log("☁️ Iniciando sincronización inicial desde Supabase...");
 
     // 📥 Descargar Clientes
-    const { data: clientes, error: clientesError } = await supabase
+    const { data: clientesData, error: clientesError } = await supabase
       .from('clientes')
-      .select('*');
-    if (clientesError) throw clientesError;
-    console.log("✅ Clientes recibidos:", clientes);
-    save(K_CLIENTES, clientes);
+      .select('id, nombre, direccion, nif, telefono')
+      .headers({ apikey: SUPABASE_ANON_KEY });
+
+    if (clientesError) {
+      console.error("❌ Error obteniendo clientes:", clientesError);
+    } else {
+      console.log(`✅ Clientes descargados: ${clientesData.length}`);
+      window.save(K_CLIENTES, clientesData);
+    }
 
     // 📥 Descargar Productos
-    const { data: productos, error: productosError } = await supabase
+    const { data: productosData, error: productosError } = await supabase
       .from('productos')
-      .select('*');
-    if (productosError) throw productosError;
-    console.log("✅ Productos recibidos:", productos);
-    save(K_PRODUCTOS, productos);
+      .select('name, mode, boxkg, price, origin')
+      .headers({ apikey: SUPABASE_ANON_KEY });
 
-    // 📥 Descargar Histórico de Precios
-    const { data: hist, error: histError } = await supabase
+    if (productosError) {
+      console.error("❌ Error obteniendo productos:", productosError);
+    } else {
+      console.log(`✅ Productos descargados: ${productosData.length}`);
+      window.save(K_PRODUCTOS, productosData);
+    }
+
+    // 📥 Descargar Histórico de precios (priceHist)
+    const { data: priceHistData, error: priceHistError } = await supabase
       .from('priceHist')
-      .select('*');
-    if (histError) throw histError;
-    console.log("✅ Histórico de precios recibido:", hist);
-    save(K_PRICEHIST, hist);
+      .select('*')
+      .headers({ apikey: SUPABASE_ANON_KEY });
 
-    console.log("🎉 Sincronización inicial completada");
-    
-    // 🔄 Renderizar interfaz después de sincronizar
-    if (typeof renderAll === 'function') renderAll();
+    if (priceHistError) {
+      console.warn("⚠️ No se pudo obtener priceHist (es posible que la tabla no exista):", priceHistError);
+    } else {
+      console.log(`✅ Histórico de precios descargado: ${priceHistData.length}`);
+      window.save(K_PRICEHIST, priceHistData);
+    }
 
-  } catch (err) {
-    console.error("❌ Error en sincronización inicial:", err);
+    console.log("✨ Sincronización inicial completa");
+  } catch (e) {
+    console.error("❌ Error en sincronización inicial:", e);
   }
 }
+
 
 // ⏯️ Ejecutar la sincronización al abrir
 document.addEventListener('DOMContentLoaded', syncAlAbrir);
@@ -1292,14 +1302,11 @@ document.getElementById('btnSumarIVA')?.addEventListener('click', () => {
 /* ========================================================================
    🔘 BOTÓN MANUAL: Sincronizar con Supabase (descarga sin sobrescribir)
    ======================================================================== */
-document.getElementById('btnSyncSupabase')?.addEventListener('click', async () => {
-  if (!navigator.onLine) {
-    alert('📴 Sin conexión a internet. No se puede sincronizar.');
-    return;
-  }
-  alert('☁️ Iniciando sincronización… consulta la consola para detalles.');
+document.addEventListener('DOMContentLoaded', async () => {
   await syncAlAbrir();
+  if (typeof renderAll === "function") renderAll();
 });
+
 
 // ✅ Cierre final del bloque principal
 })();
