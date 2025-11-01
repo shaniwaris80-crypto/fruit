@@ -64,8 +64,17 @@ document.addEventListener('DOMContentLoaded', syncAlAbrir);
 
 
 
-// ⏯️ Ejecutar la sincronización al abrir
-document.addEventListener('DOMContentLoaded', syncAlAbrir);
+// --- Ejecutar sincronización al cargar el DOM ---
+document.addEventListener('DOMContentLoaded', async () => {
+  await syncAlAbrir();
+
+  if (typeof renderAll === "function") {
+    renderAll();
+  } else {
+    console.warn("⚠️ renderAll no disponible todavía");
+  }
+});
+
 
 
 
