@@ -26,37 +26,30 @@ const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 async function syncAlAbrir() {
   console.log("📥 Sincronización inicial desde Supabase...");
 
-  // 📥 Descargar Clientes
-  const { data: clientesData, error: clientesError } = await supabase
-    .from('clientes')
-    .select('id, nombre, direccion, nif, telefono, email')
-    .headers({
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-    });
+// 📥 Descargar Clientes
+const { data: clientesData, error: clientesError } = await supabase
+  .from('clientes')
+  .select('id, nombre, direccion, nif, telefono, email');
 
-  if (clientesError) {
-    console.error("❌ Error obteniendo clientes:", clientesError);
-  } else {
-    console.log("✅ Clientes recibidos:", clientesData);
-    save(K_CLIENTES, clientesData || []);
-  }
+if (clientesError) {
+  console.error("❌ Error obteniendo clientes:", clientesError);
+} else {
+  console.log("✅ Clientes recibidos:", clientesData);
+  save(K_CLIENTES, clientesData || []);
+}
 
-  // 📥 Descargar Productos
-  const { data: productosData, error: productosError } = await supabase
-    .from('productos')
-    .select('name, mode, boxkg, price, origin')
-    .headers({
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-    });
+// 📥 Descargar Productos
+const { data: productosData, error: productosError } = await supabase
+  .from('productos')
+  .select('name, mode, boxkg, price, origin');
 
-  if (productosError) {
-    console.error("❌ Error obteniendo productos:", productosError);
-  } else {
-    console.log("✅ Productos recibidos:", productosData);
-    save(K_PRODUCTOS, productosData || []);
-  }
+if (productosError) {
+  console.error("❌ Error obteniendo productos:", productosError);
+} else {
+  console.log("✅ Productos recibidos:", productosData);
+  save(K_PRODUCTOS, productosData || []);
+}
+
 
   // ⚠️ Si hay priceHist en Supabase, querrás descargarlo desde aquí.
   const { data: priceHistData, error: priceHistError } = await supabase
