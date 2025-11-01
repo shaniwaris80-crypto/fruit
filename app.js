@@ -22,55 +22,69 @@ const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
 const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// Descargar solo al abrir (clientes, productos y priceHist)
+// --- Sync al abrir (solo descarga desde Supabase) ---
 async function syncAlAbrir() {
-  try {
-    console.log("☁️ Iniciando sincronización inicial desde Supabase...");
+  console.log("📥 Sincronización inicial desde Supabase...");
 
-    // 📥 Descargar Clientes
-    const { data: clientesData, error: clientesError } = await supabase
-      .from('clientes')
-      .select('id, nombre, direccion, nif, telefono')
-      .headers({ apikey: SUPABASE_ANON_KEY });
+  // 📥 Descargar Clientes
+  const { data: clientesData, error: clientesError } = await supabase
+    .from('clientes')
+    .select('id, nombre, direccion, nif, telefono, email')
+    .headers({
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+    });
 
-    if (clientesError) {
-      console.error("❌ Error obteniendo clientes:", clientesError);
-    } else {
-      console.log(`✅ Clientes descargados: ${clientesData.length}`);
-      window.save(K_CLIENTES, clientesData);
-    }
+  if (clientesError) {
+    console.error("❌ Error obteniendo clientes:", clientesError);
+  } else {
+    console.log("✅ Clientes recibidos:", clientesData);
+    save(K_CLIENTES, clientesData || []);
+  }
 
-    // 📥 Descargar Productos
-    const { data: productosData, error: productosError } = await supabase
-      .from('productos')
-      .select('name, mode, boxkg, price, origin')
-      .headers({ apikey: SUPABASE_ANON_KEY });
+  // 📥 Descargar Productos
+  const { data: productosData, error: productosError } = await supabase
+    .from('productos')
+    .select('name, mode, boxkg, price, origin')
+    .headers({
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+    });
 
-    if (productosError) {
-      console.error("❌ Error obteniendo productos:", productosError);
-    } else {
-      console.log(`✅ Productos descargados: ${productosData.length}`);
-      window.save(K_PRODUCTOS, productosData);
-    }
+  if (productosError) {
+    console.error("❌ Error obteniendo productos:", productosError);
+  } else {
+    console.log("✅ Productos recibidos:", productosData);
+    save(K_PRODUCTOS, productosData || []);
+  }
 
-    // 📥 Descargar Histórico de precios (priceHist)
-    const { data: priceHistData, error: priceHistError } = await supabase
-      .from('priceHist')
-      .select('*')
-      .headers({ apikey: SUPABASE_ANON_KEY });
+  // ⚠️ Si hay priceHist en Supabase, querrás descargarlo desde aquí.
+  const { data: priceHistData, error: priceHistError } = await supabase
+    .from('priceHist')
+    .select('*')
+    .headers({
+      apikey: SUPABASE_ANON_KEY,
+      Authorization: `Bearer ${SUPABASE_ANON_KEY}`
+    });
 
-    if (priceHistError) {
-      console.warn("⚠️ No se pudo obtener priceHist (es posible que la tabla no exista):", priceHistError);
-    } else {
-      console.log(`✅ Histórico de precios descargado: ${priceHistData.length}`);
-      window.save(K_PRICEHIST, priceHistData);
-    }
-
-    console.log("✨ Sincronización inicial completa");
-  } catch (e) {
-    console.error("❌ Error en sincronización inicial:", e);
+  if (priceHistError) {
+    console.warn("⚠️ Error obteniendo priceHist o no existe:", priceHistError);
+  } else {
+    console.log("✅ priceHist recibido:", priceHistData);
+    save(K_PRICEHIST, priceHistData || []);
   }
 }
+
+// --- Ejecutar syncAlAbrir al cargar DOM ---
+document.addEventListener('DOMContentLoaded', async () => {
+  await syncAlAbrir();
+  if (typeof renderAll === "function") {
+    renderAll();
+  } else {
+    console.warn("⚠️ renderAll no disponible todavía");
+  }
+});
+
 
 
 // ⏯️ Ejecutar la sincronización al abrir
