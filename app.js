@@ -45,68 +45,48 @@ const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBh
 
 const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
 
-// ✅ Corrección: Encapsular await dentro de función async
+// 🔄 Descarga inicial al cargar la app
 async function syncAlAbrir() {
   try {
-    // 📥 Descargar Clientes al abrir
-    const { data: clientesData, error: clientesError } = await supabase
+    console.log("☁️ Descargando datos desde Supabase...");
+
+    // 📥 Descargar Clientes
+    const { data: clientes, error: clientesError } = await supabase
       .from('clientes')
-      .select('id, nombre, direccion, nif, telefono, email');
-
-    if (clientesError) {
-      console.error('❌ Error obteniendo clientes:', clientesError);
-    } else {
-      console.log('✅ Clientes recibidos de Supabase:', clientesData);
-      save(K_CLIENTES, clientesData);
-    }
-
-    // 📥 Descargar Productos al abrir
-    const { data: productosData, error: productosError } = await supabase
-      .from('productos')
-      .select('name, mode, boxkg, price, origin');
-
-    if (productosError) {
-      console.error('❌ Error obteniendo productos:', productosError);
-    } else {
-      console.log('✅ Productos recibidos de Supabase:', productosData);
-      save(K_PRODUCTOS, productosData);
-    }
-
-    // 📥 Descargar Facturas al abrir
-    const { data: facturasData, error: facturasError } = await supabase
-      .from('facturas')
       .select('*');
+    if (clientesError) throw clientesError;
+    console.log("✅ Clientes recibidos:", clientes);
+    save(K_CLIENTES, clientes);
 
-    if (facturasError) {
-      console.error('❌ Error obteniendo facturas:', facturasError);
-    } else {
-      console.log('✅ Facturas recibidas de Supabase:', facturasData);
-      save(K_FACTURAS, facturasData);
-    }
+    // 📥 Descargar Productos
+    const { data: productos, error: productosError } = await supabase
+      .from('productos')
+      .select('*');
+    if (productosError) throw productosError;
+    console.log("✅ Productos recibidos:", productos);
+    save(K_PRODUCTOS, productos);
 
-    // 📥 Descargar Histórico de Precios al abrir
-    const { data: priceHistData, error: priceHistError } = await supabase
+    // 📥 Descargar Histórico de Precios
+    const { data: hist, error: histError } = await supabase
       .from('priceHist')
       .select('*');
+    if (histError) throw histError;
+    console.log("✅ Histórico de precios recibido:", hist);
+    save(K_PRICEHIST, hist);
 
-    if (priceHistError) {
-      console.error('❌ Error obteniendo priceHist:', priceHistError);
-    } else {
-      console.log('✅ PriceHist recibido de Supabase:', priceHistData);
-      save(K_PRICEHIST, priceHistData);
-    }
+    console.log("🎉 Sincronización inicial completada");
+    
+    // 🔄 Renderizar interfaz después de sincronizar
+    if (typeof renderAll === 'function') renderAll();
 
-    // 👇 Llamada a tu render global (si existe)
-    if (typeof renderAll === 'function') {
-      renderAll();
-    }
-  } catch (e) {
-    console.error('❌ Error en sincronización inicial:', e);
+  } catch (err) {
+    console.error("❌ Error en sincronización inicial:", err);
   }
 }
 
-// 🚀 Ejecuta la sincronización al abrir
-syncAlAbrir();
+// ⏯️ Ejecutar la sincronización al abrir
+document.addEventListener('DOMContentLoaded', syncAlAbrir);
+
 
 
 /* =======================================================
