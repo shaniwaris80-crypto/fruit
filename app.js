@@ -81,33 +81,69 @@ function ensureClienteIds(){
 function seedClientesIfEmpty(){
   if(clientes.length) return ensureClienteIds();
   clientes = uniqueByName([
-    {id:uid(), nombre:'Riviera — CONOR ESY SLU', nif:'B16794893', dir:'Paseo del Espolón, 09003 Burgos'},
-    {id:uid(), nombre:'Alesal Pan / Café de Calle San Lesmes — Alesal Pan y Café S.L.', nif:'B09582420', dir:'C/ San Lesmes 1, Burgos'},
-    {id:uid(), nombre:'Al Pan Pan Burgos, S.L.', nif:'B09569344', dir:'C/ Miranda 17, Bajo, 09002 Burgos', tel:'947 277 977', email:'bertiz.miranda@gmail.com'},
-    {id:uid(), nombre:'Cuevas Palacios Restauración S.L. (Con/sentidos)', nif:'B10694792', dir:'C/ San Lesmes, 1 – 09004 Burgos', tel:'947 20 35 51'},
-    {id:uid(), nombre:'Café Bar Nuovo (Einy Mercedes Olivo Jiménez)', nif:'120221393', dir:'C/ San Juan de Ortega 14, 09007 Burgos'},
-    {id:uid(), nombre:'Hotel Cordon'},
-    {id:uid(), nombre:'Vaivén Hostelería'},
-    {id:uid(), nombre:'Grupo Resicare'},
-    {id:uid(), nombre:'Carlos Alameda Peralta & Seis Más'},
-    {id:uid(), nombre:'Tabalou Development SLU', nif:'ES B09567769'},
-    {id:uid(), nombre:'Golden Garden — David Herrera Estalayo', nif:'71281665L', dir:'Trinidad, 12, 09003 Burgos'},
-    {id:uid(), nombre:'Romina — PREMIER', dir:'C/ Madrid 42, Burgos'},
-    {id:uid(), nombre:'Abbas — Locutorio Gamonal', dir:'C/ Derechos Humanos 45, Burgos'},
-    {id:uid(), nombre:'Nadeem Bhai — RIA Locutorio', dir:'C/ Vitoria 137, Burgos'},
-    {id:uid(), nombre:'Mehmood — Mohsin Telecom', dir:'C/ Vitoria 245, Burgos'},
-    {id:uid(), nombre:'Adnan Asif', nif:'X7128589S', dir:'C/ Padre Flórez 3, Burgos'},
-    {id:uid(), nombre:'Imran Khan — Estambul', dir:'Avda. del Cid, Burgos'},
-    {id:uid(), nombre:'Waqas Sohail', dir:'C/ Vitoria, Burgos'},
-    {id:uid(), nombre:'Malik — Locutorio Malik', dir:'C/ Progreso, Burgos'},
-    {id:uid(), nombre:'Angela', dir:'C/ Madrid, Burgos'},
-    {id:uid(), nombre:'Aslam — Locutorio Aslam', dir:'Avda. del Cid, Burgos'},
-    {id:uid(), nombre:'Victor Pelu — Tienda Centro', dir:'Burgos Centro'},
-    {id:uid(), nombre:'Domingo'},
-    {id:uid(), nombre:'Bar Tropical'},
-    {id:uid(), nombre:'Bar Punta Cana — PUNTA CANA', dir:'C/ Los Titos, Burgos'},
-    {id:uid(), nombre:'Jose — Alimentación Patxi', dir:'C/ Camino Casa la Vega 33, Burgos'},
-    {id:uid(), nombre:'Ideal — Ideal Supermercado', dir:'Avda. del Cid, Burgos'}
+    [
+  {
+    id: uid(), 
+    nombre: 'Adnan Asif', 
+    nif: 'X7128589S', 
+    dir: 'Calle Padre Flórez 3, Burgos', 
+    pago: 'Efectivo'
+  },
+  {
+    id: uid(), 
+    nombre: 'Golden Garden — David Herrera Estalayo', 
+    nif: '71281665L', 
+    dir: 'Trinidad, 12, 09003 Burgos'
+  },
+  {
+    id: uid(), 
+    nombre: 'Cuevas Palacios Restauración S.L. (Con/sentidos)', 
+    nif: 'B10694792', 
+    dir: 'C/ San Lesmes, 1 - 09004 Burgos', 
+    tel: '947 20 35 51'
+  },
+  {
+    id: uid(), 
+    nombre: 'Al Pan Pan Burgos, S.L.', 
+    nif: 'B09569344', 
+    dir: 'C/ Miranda, 17 Bajo, 09002 Burgos', 
+    email: 'bertiz.miranda@gmail.com', 
+    tel: '947277977'
+  },
+  {
+    id: uid(), 
+    nombre: 'Alesal Pan y Café S.L. (CAFÉ DE CALLE SAN LESMES)', 
+    nif: 'B09582420', 
+    dir: 'Calle San Lesmes 1, Burgos'
+  },
+  {
+    id: uid(), 
+    nombre: 'Riviera — CONOR ESY SLU', 
+    nif: 'B16794893', 
+    dir: 'Paseo del Espolón, 09003 Burgos'
+  },
+  {
+    id: uid(), 
+    nombre: 'Café Bar Nuovo (Einy Mercedes Olivo Jiménez)', 
+    nif: '120221393', 
+    dir: 'C/ San Juan de Ortega 14, 09007 Burgos'
+  },
+  {
+    id: uid(), 
+    nombre: 'Restauración Hermanos Marijuán S.L.U. (Restaurante Los Braseros)', 
+    nif: 'B09425059', 
+    dir: 'Carretera Logroño Km 102, 09193 Castrillo del Val, Burgos', 
+    email: 'info@restaurantelosbraseros.com'
+  },
+  {
+    id: uid(), 
+    nombre: 'Alameda Peralta Carlos y otros C.B.', 
+    dir: 'C/ La Puebla, 6, 09004 Burgos (España)', 
+    nif: 'E09578345', 
+    email: 'info@hotelcordon.com'
+  }
+]
+
   ]);
   save(K_CLIENTES, clientes);
 }
