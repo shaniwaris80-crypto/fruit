@@ -19,58 +19,42 @@ window.save = function (k, v) {
 
 // --- SUPABASE INIT (Solo descarga al abrir) ---
 const SUPABASE_URL = 'https://fjfbokkcdbmralwzsest.supabase.co';
-const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
-const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+const SUPABASE_ANON_KEY =
+  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZqZmJva2tjZGJtcmFsd3pzZXN0Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjE4MjYzMjcsImV4cCI6MjA3NzQwMjMyN30.sX3U2V9GKtcS5eWApVJy0doQOeTW2MZrLHqndgfyAUU';
 
-// --- Sync al abrir (solo descarga desde Supabase) ---
+const supabase = supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+
+// --- Descarga automática de supabase solo al abrir ---
 async function syncAlAbrir() {
-  console.log("📥 Sincronización inicial desde Supabase...");
+  try {
+    console.log('☁️ Iniciando sincronización inicial...');
 
-// 📥 Descargar Clientes
-const { data: clientesData, error: clientesError } = await supabase
-  .from('clientes')
-  .select('id, nombre, direccion, nif, telefono, email');
+    // 📥 Descargar Clientes
+    const { data: clientesData, error: clientesError } = await supabase
+      .from('clientes')
+      .select('id, nombre, direccion, nif, telefono');
 
-if (clientesError) {
-  console.error("❌ Error obteniendo clientes:", clientesError);
-} else {
-  console.log("✅ Clientes recibidos:", clientesData);
-  save(K_CLIENTES, clientesData || []);
-}
+    if (clientesError) throw clientesError;
+    window.save(window.K_CLIENTES, clientesData || []);
 
-// 📥 Descargar Productos
-const { data: productosData, error: productosError } = await supabase
-  .from('productos')
-  .select('name, mode, boxkg, price, origin');
+    // 📥 Descargar Productos
+    const { data: productosData, error: productosError } = await supabase
+      .from('productos')
+      .select('name, mode, boxkg, price, origin');
 
-if (productosError) {
-  console.error("❌ Error obteniendo productos:", productosError);
-} else {
-  console.log("✅ Productos recibidos:", productosData);
-  save(K_PRODUCTOS, productosData || []);
-}
+    if (productosError) throw productosError;
+    window.save(window.K_PRODUCTOS, productosData || []);
 
-
-  // ⚠️ Si hay priceHist en Supabase, querrás descargarlo desde aquí.
-  const { data: priceHistData, error: priceHistError } = await supabase
-    .from('priceHist')
-    .select('*')
-    .headers({
-      apikey: SUPABASE_ANON_KEY,
-      Authorization: `Bearer ${SUPABASE_ANON_KEY}`
-    });
-
-  if (priceHistError) {
-    console.warn("⚠️ Error obteniendo priceHist o no existe:", priceHistError);
-  } else {
-    console.log("✅ priceHist recibido:", priceHistData);
-    save(K_PRICEHIST, priceHistData || []);
+    console.log('✅ Sincronización inicial lista.');
+    if (typeof renderAll === 'function') renderAll();
+  } catch (err) {
+    console.error('❌ Error en sincronización inicial:', err.message || err);
   }
 }
 
-// --- Ejecutar syncAlAbrir al cargar DOM ---
-document.addEventListener('DOMContentLoaded', async () => {
-  await syncAlAbrir();
+// Ejecutar sincronización al cargar el DOM
+document.addEventListener('DOMContentLoaded', syncAlAbrir);
+
   if (typeof renderAll === "function") {
     renderAll();
   } else {
